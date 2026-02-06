@@ -82,4 +82,26 @@ export const storeAPI = {
   },
 };
 
+// User API
+export const userAPI = {
+  getUser: async (userId) => {
+    try {
+      const response = await api.get(`/user/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get user error:', error);
+      throw error;
+    }
+  },
+  updateUser: async (context) => {
+    try {
+      const response = await api.post('/user/update', context);
+      return response.data;
+    } catch (error) {
+      console.error('Update user error:', error);
+      throw error;
+    }
+  },
+};
+
 export default api;

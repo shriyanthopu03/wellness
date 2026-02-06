@@ -55,6 +55,46 @@ agent = AroMiAgent()
 def read_root():
     return {"message": "Welcome to AroMi AI Health Coach API"}
 
+@app.get("/user/{user_id}")
+async def get_user(user_id: str):
+    try:
+        users_col, _, _, _ = get_collections()
+        user = await users_col.find_one({"user_id": user_id}, {"_id": 0})
+        if not user:
+            # Return a default context if user not found
+            return {
+                "user_id": user_id,
+                "name": "User",
+                "age": 25,
+                "gender": "other",
+                "height": 170,
+                "weight": 70,
+                "mood": "neutral",
+                "energy_level": 5,
+                "activity_type": "sedentary",
+                "health_goals": [],
+                "steps": 0,
+                "calories_burned": 0,
+                "todos": [],
+                "vitals": {"heart_rate": 72, "bmi": 24.2, "daily_calories": 2000}
+            }
+        return user
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/user/update")
+async def update_user(request: UserContext):
+    try:
+        users_col, _, _, _ = get_collections()
+        await users_col.update_one(
+            {"user_id": request.user_id},
+            {"$set": request.model_dump()},
+            upsert=True
+        )
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
     try:

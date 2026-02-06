@@ -308,17 +308,3 @@ const InsightCard = ({ icon, label, value, trend }) => (
 
 
 export default Dashboard;
-
-const InsightCard = ({ icon, label, value, trend }) => (
-    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-4">
-        <div className="p-4 bg-gray-50 rounded-2xl">{icon}</div>
-        <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{label}</p>
-            <h4 className="text-2xl font-black text-gray-900">{value}</h4>
-            <p className="text-[10px] font-bold text-green-500 mt-1">{trend}</p>
-        </div>
-    </div>
-);
-
-
-export default Dashboard;

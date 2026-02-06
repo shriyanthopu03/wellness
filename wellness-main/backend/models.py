@@ -17,6 +17,9 @@ class UserContext(BaseModel):
         "activity_level": "sedentary"
     }
     health_goals: Optional[List[str]] = []
+    steps: Optional[int] = 0
+    calories_burned: Optional[float] = 0.0
+    todos: Optional[List[dict]] = []
     vitals: Optional[dict] = {
         "heart_rate": 0,
         "bmi": 0.0,

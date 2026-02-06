@@ -9,8 +9,11 @@ const Login = ({ onLogin }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        // In a real app, you would validate credentials here
-        onLogin({ email, name: email.split('@')[0] || "User" });
+        // Use email as unique ID for database persistence
+        onLogin({ 
+            user_id: email.replace(/[@.]/g, '_'), 
+            name: email.split('@')[0] || "User" 
+        });
     };
 
     return (

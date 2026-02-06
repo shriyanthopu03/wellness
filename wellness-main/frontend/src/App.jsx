@@ -13,6 +13,7 @@ import Community from './components/Community';
 import Reports from './components/Reports';
 import Login from './components/Login';
 import axios from 'axios';
+import { userAPI } from './services/api';
 import { LayoutDashboard, MessageSquare, HeartPulse, ShoppingBag, HelpCircle, UserCircle, Activity, Utensils, Wind, RefreshCw, Bell, Users, BarChart2 } from 'lucide-react';
 import { useEffect } from 'react';
 
@@ -50,6 +51,29 @@ function App() {
     location: null,
     last_interaction: null
   });
+
+  // Fetch initial data from DB on login
+  useEffect(() => {
+    if (isAuthenticated) {
+        userAPI.getUser(userContext.user_id).then(data => {
+            if (data) {
+                setUserContext(data);
+            }
+        });
+    }
+  }, [isAuthenticated]);
+
+  // Save data to DB whenever goals, todos, or profile changes
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
+    // Use a small delay/debounce for saving to avoid too many writes
+    const timer = setTimeout(() => {
+        userAPI.updateUser(userContext);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [userContext.health_goals, userContext.todos, userContext.name, userContext.age, userContext.weight, userContext.height, userContext.steps]);
 
   // Real-time Data Sync Simulation
   useEffect(() => {
@@ -106,7 +130,11 @@ function App() {
   const [messages, setMessages] = useState([]);
 
   const handleLogin = (userData) => {
-    setUserContext(prev => ({ ...prev, name: userData.name }));
+    setUserContext(prev => ({ 
+        ...prev, 
+        user_id: userData.user_id,
+        name: userData.name 
+    }));
     setIsAuthenticated(true);
   };
 
