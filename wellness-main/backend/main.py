@@ -13,11 +13,8 @@ load_dotenv()
 async def lifespan(app: FastAPI):
     # Startup
     Database.connect_db()
-    # Clear database on startup as requested: "set all the data to null"
-    db = get_database()
-    await db.get_collection("users").delete_many({})
-    await db.get_collection("chat_history").delete_many({})
-    print("✓ Reset database: All data set to null/empty")
+    # Data is now persistent. If you need to reset, do it manually or via a reset endpoint.
+    print("✓ Connected to Database")
     yield
     # Shutdown
     Database.close_db()
@@ -61,25 +58,44 @@ async def get_user(user_id: str):
         users_col, _, _, _ = get_collections()
         user = await users_col.find_one({"user_id": user_id}, {"_id": 0})
         if not user:
-            # Return a default context if user not found
-            return {
-                "user_id": user_id,
-                "name": "User",
-                "age": 25,
-                "gender": "other",
-                "height": 170,
-                "weight": 70,
-                "mood": "neutral",
-                "energy_level": 5,
-                "activity_type": "sedentary",
-                "health_goals": [],
-                "steps": 0,
-                "calories_burned": 0,
-                "todos": [],
-                "vitals": {"heart_rate": 72, "bmi": 24.2, "daily_calories": 2000}
-            }
+            raise HTTPException(status_code=404, detail="User not found")
         return user
     except Exception as e:
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/login")
+async def login_endpoint(request: dict):
+    try:
+        email = request.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required")
+        
+        user_id = email.replace("@", "_").replace(".", "_")
+        users_col, _, _, _ = get_collections()
+        user = await users_col.find_one({"user_id": user_id}, {"_id": 0})
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found. Please sign up first.")
+        
+        return user
+    except Exception as e:
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/signup")
+async def signup_endpoint(request: UserContext):
+    try:
+        users_col, _, _, _ = get_collections()
+        # Check if user already exists
+        existing = await users_col.find_one({"user_id": request.user_id})
+        if existing:
+            raise HTTPException(status_code=400, detail="User already exists with this email")
+        
+        await users_col.insert_one(request.model_dump())
+        return {"status": "success", "user": request.model_dump()}
+    except Exception as e:
+        if isinstance(e, HTTPException): raise e
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/user/update")

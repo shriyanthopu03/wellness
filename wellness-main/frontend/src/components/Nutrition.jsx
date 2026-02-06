@@ -85,86 +85,113 @@ const Nutrition = ({ userContext }) => {
     const progress = Math.min(100, (caloriesConsumed / (userContext.vitals.daily_calories || 2000)) * 100);
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700 max-w-6xl mx-auto pb-20">
             {/* Macro Overview */}
-            <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-8 items-center">
-                <div className="flex flex-col items-center">
-                    <div className="relative w-32 h-32 flex items-center justify-center">
-                        <svg className="w-full h-full -rotate-90">
-                            <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-gray-100" />
-                            <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-brand" strokeDasharray="364.4" strokeDashoffset={(364.4 * (100 - progress)) / 100} />
+            <div className="bg-slate-900 rounded-[3rem] p-12 shadow-2xl border border-slate-800 grid grid-cols-1 lg:grid-cols-4 gap-12 items-center relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
+                <div className="flex flex-col items-center relative z-10">
+                    <div className="relative w-48 h-48 flex items-center justify-center">
+                        <svg className="w-full h-full -rotate-90 filter drop-shadow-[0_0_15px_rgba(45,212,191,0.2)]">
+                            <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="10" fill="transparent" className="text-slate-800" />
+                            <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="14" fill="transparent" className="text-brand" strokeDasharray="502" strokeDashoffset={(502 * (100 - progress)) / 100} strokeLinecap="round" />
                         </svg>
                         <div className="absolute text-center">
-                            <span className="block text-2xl font-black text-gray-900">{caloriesLeft}</span>
-                            <span className="text-[10px] font-bold text-gray-400 uppercase">Left</span>
+                            <span className="block text-5xl font-black text-white tracking-tighter italic">{caloriesLeft}</span>
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1 block">Entropy Left</span>
                         </div>
                     </div>
                 </div>
                 
-                <div className="md:col-span-3 grid grid-cols-3 gap-6">
-                    <MacroStat label="Proteins" value="84g" target="120g" color="blue" />
-                    <MacroStat label="Carbs" value="145g" target="200g" color="orange" />
-                    <MacroStat label="Fats" value="42g" target="65g" color="yellow" />
+                <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
+                    <MacroStat label="Peptides" value="84g" target="120g" color="blue" />
+                    <MacroStat label="Glycogen" value="145g" target="200g" color="orange" />
+                    <MacroStat label="Lipids" value="42g" target="65g" color="brand" />
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* AI Recommendations */}
-                <div className="bg-brand-light/20 rounded-3xl p-8 border border-brand-light flex flex-col">
-                    <div className="inline-flex p-3 bg-white rounded-2xl text-brand mb-6 shadow-sm w-fit">
-                        <Coffee size={24} />
-                    </div>
-                    
-                    <div className="mb-6">
-                        <label className="block text-sm font-bold text-brand-dark mb-2">Tell AroMi your health concern:</label>
-                        <input 
-                            type="text" 
-                            placeholder="e.g., PCOS, high sugar, muscle gain..." 
-                            value={userConcern}
-                            onChange={(e) => setUserConcern(e.target.value)}
-                            className="w-full px-4 py-3 bg-white border border-brand-light rounded-xl focus:ring-2 focus:ring-brand outline-none text-sm"
-                        />
-                    </div>
-
-                    <h3 className="text-xl font-bold text-brand-dark mb-4">AroMi Advice</h3>
-                    <p className="text-gray-700 text-sm leading-relaxed mb-6">
-                        "{recs.advice}"
-                    </p>
-                    <div className="space-y-3 flex-1">
-                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Suggested for you</h4>
-                        {recs.recipes.map((recipe, idx) => (
-                            <div key={idx} className="bg-white p-4 rounded-2xl shadow-sm border border-brand-light/50 group cursor-pointer hover:shadow-md transition-all">
-                                <h5 className="font-bold text-gray-800 group-hover:text-brand">{recipe.name}</h5>
-                                <p className="text-xs text-gray-500">{recipe.time} • {recipe.tags} • {recipe.kcal} kcal</p>
+            {/* AI Advisor Panel */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                <div className="lg:col-span-1 space-y-8">
+                    <div className="bg-slate-900 p-10 rounded-[2.5rem] border border-slate-800 shadow-2xl relative overflow-hidden group h-full">
+                        <div className="absolute top-0 left-0 w-32 h-32 bg-brand/5 blur-3xl"></div>
+                        <h4 className="text-[10px] font-black text-brand uppercase tracking-[0.4em] mb-10 italic flex items-center gap-3">
+                            <div className="w-1.5 h-1.5 bg-brand rounded-full animate-pulse shadow-[0_0_8px_rgba(45,212,191,0.6)]"></div>
+                            Neural Diet Engine
+                        </h4>
+                        <div className="space-y-6 relative z-10">
+                            <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest block">Input Biological Constraint</label>
+                            <div className="relative">
+                                <input 
+                                    value={userConcern}
+                                    onChange={(e) => setUserConcern(e.target.value)}
+                                    placeholder="E.g., OPTIMIZE FOR PCOS"
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-6 py-5 text-sm text-slate-300 font-black tracking-tight focus:outline-none focus:border-brand/50 transition-all placeholder:text-slate-700 shadow-inner"
+                                />
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-brand/10 text-brand rounded-lg border border-brand/20">
+                                    <Plus size={16} />
+                                </div>
                             </div>
-                        ))}
+                        </div>
+                        
+                        <div className="mt-12 pt-10 border-t border-slate-800/50">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 block">Engine Advisory</span>
+                            <p className="text-slate-300 text-sm leading-relaxed italic border-l-2 border-brand/40 pl-6 py-2">
+                                "{recs.advice}"
+                            </p>
+                        </div>
+
+                        <div className="mt-12 space-y-4">
+                            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Recipe Protocols</h4>
+                            {recs.recipes.map((recipe, idx) => (
+                                <div key={idx} className="bg-slate-950/50 p-6 rounded-2xl border border-slate-800/50 group/item cursor-pointer hover:bg-slate-900 hover:border-brand/30 transition-all flex justify-between items-center">
+                                    <div>
+                                        <h5 className="font-black text-slate-100 uppercase tracking-tight italic text-sm group-hover/item:text-brand transition-colors">{recipe.name}</h5>
+                                        <div className="flex items-center gap-3 mt-2">
+                                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{recipe.time}</span>
+                                            <span className="text-[9px] font-black text-brand uppercase tracking-widest">{recipe.kcal} kcal</span>
+                                        </div>
+                                    </div>
+                                    <ChevronRight size={16} className="text-slate-700 group-hover/item:text-brand" />
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
-                {/* Meal Journal */}
-                <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-bold text-gray-800">Meal Journal</h3>
-                        <button className="p-2 bg-brand text-white rounded-xl shadow-lg shadow-brand/20 hover:scale-105 transition-transform">
-                            <Plus size={20} />
-                        </button>
-                    </div>
+                <div className="lg:col-span-2 space-y-10">
+                    <div className="bg-slate-900 rounded-[3rem] p-10 shadow-2xl border border-slate-800 relative overflow-hidden">
+                        <div className="flex justify-between items-center mb-10 relative z-10">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-100 uppercase tracking-tighter italic">Consumption Log</h3>
+                                <p className="text-[10px] text-slate-500 font-black mt-2 uppercase tracking-[0.4em]">Real-time Nutrient Absorption Audit</p>
+                            </div>
+                            <button className="p-5 bg-brand text-slate-950 rounded-[1.5rem] shadow-xl shadow-brand/20 hover:scale-105 active:scale-95 transition-all">
+                                <Plus size={24} />
+                            </button>
+                        </div>
 
-                    <div className="space-y-4">
-                        {meals.map((meal, i) => (
-                            <div key={i} className="flex iems-center justify-between p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-all border border-transparent hover:border-gray-200 cursor-pointer">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-brand">
-                                        <Apple size={20} />
+                        <div className="space-y-6 relative z-10">
+                            {meals.map((meal, i) => (
+                                <div key={i} className="flex items-center justify-between p-8 bg-slate-950/30 rounded-[2rem] hover:bg-slate-950/50 border border-slate-800/50 hover:border-brand/20 transition-all cursor-pointer group">
+                                    <div className="flex items-center gap-8">
+                                        <div className="w-16 h-16 bg-slate-900 rounded-2xl shadow-xl flex items-center justify-center text-brand border border-slate-800 group-hover:scale-110 transition-all duration-500">
+                                            <Apple size={28} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-xl font-black text-slate-200 uppercase tracking-tight italic group-hover:text-brand transition-colors">{meal.name}</h4>
+                                            <div className="flex items-center gap-4 mt-2">
+                                                <span className="text-[10px] font-black text-brand uppercase tracking-widest px-2 py-0.5 bg-brand/5 border border-brand/10 rounded-md">{meal.type}</span>
+                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">{meal.time}</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h4 className="font-bold text-gray-800">{meal.name}</h4>
-                                        <span className="text-xs text-brand font-bold">{meal.type} • {meal.time}</span>
+                                    <div className="text-right">
+                                        <span className="block font-black text-slate-100 text-3xl tracking-tighter italic font-mono">{meal.calories}</span>
+                                        <span className="block text-[9px] font-black text-slate-600 uppercase tracking-widest">Kcal</span>
                                     </div>
                                 </div>
-                                <span className="font-black text-gray-700">{meal.calories} kcal</span>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -174,19 +201,25 @@ const Nutrition = ({ userContext }) => {
 
 const MacroStat = ({ label, value, target, color }) => {
     const colorClasses = {
-        blue: 'bg-blue-500',
-        orange: 'bg-orange-500',
-        yellow: 'bg-yellow-500'
+        blue: 'bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]',
+        orange: 'bg-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)]',
+        brand: 'bg-brand shadow-[0_0_15px_rgba(45,212,191,0.3)]'
     };
-    const barClass = colorClasses[color] || 'bg-brand';
+    const barClass = colorClasses[color] || 'bg-brand shadow-[0_0_15px_rgba(45,212,191,0.3)]';
 
     return (
-        <div className="space-y-2">
-            <div className="flex justify-between items-end">
-                <span className="text-sm font-bold text-gray-800">{label}</span>
-                <span className="text-xs font-bold text-gray-400">{value} / {target}</span>
+        <div className="bg-slate-950/50 p-8 rounded-[2rem] border border-slate-800/50">
+            <div className="flex justify-between items-center mb-6">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">{label}</span>
+                <div className={`p-2 rounded-lg bg-slate-900 border border-slate-800`}>
+                    <Utensils size={14} className="text-slate-600" />
+                </div>
             </div>
-            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="flex items-baseline gap-2 mb-6">
+                <span className="text-4xl font-black text-white tracking-tighter italic font-mono">{value}</span>
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">/ {target}</span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800/10">
                 <div 
                     className={`h-full ${barClass} rounded-full transition-all duration-1000`} 
                     style={{ width: `${(parseInt(value) / parseInt(target)) * 100}%` }}

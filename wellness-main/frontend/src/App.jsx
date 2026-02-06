@@ -9,7 +9,6 @@ import Fitness from './components/Fitness';
 import Nutrition from './components/Nutrition';
 import Mindfulness from './components/Mindfulness';
 import Reminders from './components/Reminders';
-import Community from './components/Community';
 import Reports from './components/Reports';
 import Login from './components/Login';
 import axios from 'axios';
@@ -73,7 +72,19 @@ function App() {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [userContext.health_goals, userContext.todos, userContext.name, userContext.age, userContext.weight, userContext.height, userContext.steps]);
+  }, [
+    userContext.health_goals, 
+    userContext.todos, 
+    userContext.name, 
+    userContext.age, 
+    userContext.weight, 
+    userContext.height, 
+    userContext.steps,
+    userContext.mood,
+    userContext.energy_level,
+    userContext.lifestyle_inputs,
+    userContext.vitals
+  ]);
 
   // Real-time Data Sync Simulation
   useEffect(() => {
@@ -83,17 +94,10 @@ function App() {
         setUserContext(prev => {
             // Simulate natural heart rate fluctuation (68-76 bpm)
             const hrChange = Math.floor(Math.random() * 3) - 1;
-            const newHr = Math.max(60, Math.min(100, prev.vitals.heart_rate + hrChange));
-
-            // Simulate steps if "walking" or "workout"
-            let stepAdd = 0;
-            if (prev.activity_type === 'walking') stepAdd = Math.floor(Math.random() * 10) + 5;
-            if (prev.activity_type === 'workout') stepAdd = Math.floor(Math.random() * 20) + 15;
+            const newHr = Math.max(60, Math.min(100, (prev.vitals?.heart_rate || 72) + hrChange));
 
             return {
                 ...prev,
-                steps: prev.steps + stepAdd,
-                calories_burned: prev.calories_burned + (stepAdd * 0.04),
                 vitals: {
                     ...prev.vitals,
                     heart_rate: newHr
@@ -158,18 +162,18 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex font-sans transition-all duration-500 fade-in">
+    <div className="min-h-screen bg-slate-950 flex font-sans transition-all duration-500 fade-in text-slate-100">
         
         {/* Sidebar Navigation */}
-        <aside className="fixed left-0 top-0 h-full w-20 md:w-64 bg-white border-r border-gray-200 z-50 flex flex-col items-center md:items-start p-4">
-             <div className="mb-8 md:px-4">
-                <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight hidden md:block">
-                    AroMi<span className="text-brand">.AI</span>
+        <aside className="fixed left-0 top-0 h-full w-20 md:w-64 bg-slate-900/50 backdrop-blur-xl border-r border-slate-800/50 z-50 flex flex-col items-center md:items-start p-4">
+             <div className="mb-12 md:px-4 py-6">
+                <h1 className="text-3xl font-black text-white tracking-tighter hidden md:block uppercase italic">
+                    AroMi<span className="text-brand not-italic text-2xl">.AI</span>
                 </h1>
-                <span className="text-2xl font-extrabold text-brand md:hidden">A.</span>
+                <span className="text-2xl font-black text-brand md:hidden">A.</span>
             </div>
 
-            <nav className="flex-1 w-full space-y-2 overflow-y-auto pr-1 custom-scrollbar">
+            <nav className="flex-1 w-full space-y-1.5 overflow-y-auto pr-1 custom-scrollbar">
                 <NavButton 
                     icon={<LayoutDashboard size={20}/>} 
                     label="Dashboard" 
@@ -199,12 +203,6 @@ function App() {
                     label="Reminders" 
                     active={activeTab === 'reminders'} 
                     onClick={() => setActiveTab('reminders')} 
-                />
-                 <NavButton 
-                    icon={<Users size={20}/>} 
-                    label="Community" 
-                    active={activeTab === 'community'} 
-                    onClick={() => setActiveTab('community')} 
                 />
                  <NavButton 
                     icon={<BarChart2 size={20}/>} 
@@ -244,10 +242,10 @@ function App() {
                 />
             </nav>
 
-             <div className="mt-auto md:px-4 w-full">
+             <div className="mt-auto md:px-4 w-full py-6">
                 <button 
                     onClick={() => setIsAuthenticated(false)} 
-                    className="flex items-center gap-3 w-full p-3 text-sm text-gray-500 hover:text-red-500 transition-colors"
+                    className="flex items-center gap-3 w-full p-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-red-500 transition-colors border border-transparent hover:border-red-500/20 rounded-2xl"
                 >
                     <span className="hidden md:inline">Log Out</span>
                 </button>
@@ -255,47 +253,59 @@ function App() {
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 ml-20 md:ml-64 p-4 md:p-8 min-h-screen">
-            <header className="mb-6 md:mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                 <h2 className="text-xl md:text-2xl font-bold text-gray-800 capitalize">
-                    {activeTab === 'profile' ? 'Profile Settings' : 
-                     activeTab === 'fitness' ? 'Fitness Tracking' :
-                     activeTab === 'nutrition' ? 'Nutrition & Diet' :
-                     activeTab === 'mindfulness' ? 'Mental Health' :
-                     activeTab === 'reminders' ? 'Reminders & Alerts' :
-                     activeTab === 'community' ? 'Community Hub' :
-                     activeTab === 'reports' ? 'Clinical Insights' :
-                     activeTab === 'doubts' ? 'Ask a Health Expert' : 
-                     activeTab === 'dashboard' ? 'Your Dashboard' : 
-                     activeTab === 'chat' ? 'AI Conversation' : 
-                     activeTab === 'wellness' ? 'Daily Wellness Plan' : 
-                     'Wellness Store'}
-                 </h2>
-                 <div className="flex items-center gap-3">
+        <main className="flex-1 ml-20 md:ml-64 p-4 md:p-10 min-h-screen bg-slate-950 relative">
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-brand/5 rounded-full blur-[120px] pointer-events-none"></div>
+            
+            <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+                 <div>
+                    <h2 className="text-3xl font-black text-white uppercase tracking-tight">
+                        {activeTab === 'profile' ? 'System Profile' : 
+                        activeTab === 'fitness' ? 'Fitness Cycles' :
+                        activeTab === 'nutrition' ? 'Nutrition Matrix' :
+                        activeTab === 'mindfulness' ? 'Neural Calm' :
+                        activeTab === 'reminders' ? 'Operational Tasks' :
+                        activeTab === 'reports' ? 'Core Insights' :
+                        activeTab === 'doubts' ? 'Query Hub' : 
+                        activeTab === 'dashboard' ? 'Health Summary' : 
+                        activeTab === 'chat' ? 'Coach Interface' : 
+                        activeTab === 'wellness' ? 'Vision Optimizer' : 
+                        'Inventory Matrix'}
+                    </h2>
+                    <p className="text-slate-500 text-[10px] uppercase font-black tracking-[0.4em] mt-1">Authorized Access: {userContext.name || 'Anonymous'}</p>
+                 </div>
+
+                 <div className="flex items-center gap-6">
                     <div className="hidden md:flex flex-col items-end">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
-                            {userContext.location ? `📍 ${userContext.location}` : 'Gps Inactive'}
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2">
+                            {userContext.location ? `COORD: ${userContext.location}` : 'GPS_OFFLINE'}
                         </span>
-                        <div className="flex gap-1">
-                            {[1,2,3,4,5].map(i => <div key={i} className={`h-1.5 w-4 rounded-full ${i <= 4 ? 'bg-brand' : 'bg-gray-200'}`}></div>)}
+                        <div className="flex gap-1.5">
+                            {[1,2,3,4,5].map(i => <div key={i} className={`h-1 w-6 rounded-full ${i <= 4 ? 'bg-brand' : 'bg-slate-800'}`}></div>)}
                         </div>
                     </div>
+                    
+                    <div className="h-10 w-[1px] bg-slate-800 mx-2 hidden md:block"></div>
+
                     <button 
                         onClick={() => {
                             setIsSyncing(true);
                             setTimeout(() => setIsSyncing(false), 2000);
                         }}
-                        className={`p-2 rounded-xl border border-gray-100 hover:bg-gray-50 transition-all ${isSyncing ? 'animate-spin text-brand' : 'text-gray-400'}`}
+                        className={`p-3 rounded-2xl border border-slate-800 bg-slate-900/50 hover:border-brand/50 transition-all ${isSyncing ? 'animate-spin text-brand' : 'text-slate-400'}`}
                     >
                         <RefreshCw size={18} />
                     </button>
-                    <span className="bg-brand-light text-brand px-3 py-1 rounded-full text-xs font-bold shadow-sm">
-                        {userContext.mood.toUpperCase()}
-                    </span>
+                    
+                    <div className="flex flex-col items-center px-4 py-2 bg-brand/10 border border-brand/20 rounded-2xl">
+                        <span className="text-[8px] font-black text-brand uppercase tracking-widest mb-0.5">Core_Mood</span>
+                        <span className="text-xs font-black text-white uppercase tracking-tighter italic">
+                            {userContext.mood}
+                        </span>
+                    </div>
                  </div>
             </header>
 
-            <div className="max-w-7xl mx-auto w-full">
+            <div className="max-w-7xl mx-auto w-full relative z-10">
                 {activeTab === 'dashboard' && (
                      <Dashboard 
                         userContext={userContext} 
@@ -320,16 +330,12 @@ function App() {
                     <Reminders />
                 )}
 
-                {activeTab === 'community' && (
-                    <Community />
-                )}
-
                 {activeTab === 'reports' && (
                     <Reports userContext={userContext} />
                 )}
 
                 {activeTab === 'chat' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <section className="lg:col-span-2">
                             <Chat 
                                 messages={messages} 
@@ -338,20 +344,29 @@ function App() {
                             />
                         </section>
                         <section className="hidden lg:block">
-                            <div className="bg-brand-light/30 rounded-2xl p-6 h-full border border-brand-light">
-                                <h3 className="font-bold text-brand-dark mb-4">Current Context</h3>
-                                <ul className="space-y-4 text-sm text-gray-600">
-                                    <li className="flex justify-between">
-                                        <span>Energy:</span>
-                                        <span className="font-semibold">{userContext.energy_level}/10</span>
+                            <div className="bg-slate-900/50 border border-slate-800/50 rounded-[2.5rem] p-8 h-full">
+                                <h3 className="text-xs font-black text-white uppercase tracking-[0.3em] mb-8 pb-4 border-b border-slate-800">Operational Data</h3>
+                                <ul className="space-y-6">
+                                    <li className="flex flex-col gap-1">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Energy Sync</span>
+                                        <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-brand rounded-full transition-all duration-1000" 
+                                                style={{ width: `${(userContext.energy_level || 5) * 10}%` }}
+                                            ></div>
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-300 mt-1">{userContext.energy_level || 5}/10 UNIT</span>
                                     </li>
-                                    <li className="flex justify-between">
-                                        <span>Mood:</span>
-                                        <span className="font-semibold capitalize">{userContext.mood}</span>
+                                    <li className="flex justify-between items-center py-4 border-b border-slate-800/30">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Protocol</span>
+                                        <span className="text-xs font-bold text-brand uppercase">{userContext.activity_type}</span>
                                     </li>
-                                    <li className="flex justify-between">
-                                        <span>Activity:</span>
-                                        <span className="font-semibold capitalize">{userContext.activity_type}</span>
+                                    <li className="flex justify-between items-center py-4 border-b border-slate-800/30">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</span>
+                                        <span className="flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></div>
+                                            <span className="text-xs font-bold text-white uppercase">SYNCHRONIZED</span>
+                                        </span>
                                     </li>
                                 </ul>
                             </div>
@@ -384,15 +399,17 @@ function App() {
 const NavButton = ({ icon, label, active, onClick }) => (
     <button 
         onClick={onClick}
-        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${
+        className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 group ${
             active 
-                ? 'bg-brand text-white shadow-md shadow-brand/20' 
-                : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 pro'
+                ? 'bg-brand text-slate-950 shadow-lg shadow-brand/20 scale-105' 
+                : 'text-slate-500 hover:text-white pro overflow-hidden relative'
         }`}
     >
-        <span className="mx-auto md:mx-0">{icon}</span>
-        <span className="hidden md:inline font-medium">{label}</span>
+        <span className="transition-transform group-hover:scale-110 duration-300 relative z-10">{icon}</span>
+        <span className="hidden md:inline text-xs font-black uppercase tracking-[0.2em] relative z-10">{label}</span>
+        {!active && <div className="absolute inset-0 bg-slate-800/30 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>}
     </button>
 );
+
 
 export default App;

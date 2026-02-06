@@ -3,8 +3,12 @@
 @tailwind utilities;
 
 body {
-    background-color: #f3f4f6;
-    color: #1f2937;
+    background-color: #020617; /* Slate 950 - Near black */
+    color: #F8FAFC; /* Slate 50 - Off white */
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
 }
 
 @keyframes fadeIn {

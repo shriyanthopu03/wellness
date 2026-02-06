@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -90,6 +90,24 @@ export const userAPI = {
       return response.data;
     } catch (error) {
       console.error('Get user error:', error);
+      throw error;
+    }
+  },
+  login: async (email) => {
+    try {
+      const response = await api.post('/login', { email });
+      return response.data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  },
+  signup: async (context) => {
+    try {
+      const response = await api.post('/signup', context);
+      return response.data;
+    } catch (error) {
+      console.error('Signup error:', error);
       throw error;
     }
   },
