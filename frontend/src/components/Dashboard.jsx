@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
-import { Activity, Battery, Smile, User, Heart, Brain, Zap, Target, TrendingUp, Plus, Trash2, CheckCircle, Circle, Calculator } from 'lucide-react';
+import { Activity, Battery, Smile, User, Heart, Brain, Zap, Target, TrendingUp, Plus, Trash2, CheckCircle, Circle, Calculator, BarChart3 } from 'lucide-react';
+
+// Real-time Chart Imports
+import StepsChart from './charts/StepsChart';
+import CaloriesChart from './charts/CaloriesChart';
+import SleepChart from './charts/SleepChart';
+import ActivityChart from './charts/ActivityChart';
 
 const Dashboard = ({ userContext, setUserContext, onGetRecommendation }) => {
     const [newGoal, setNewGoal] = useState('');
@@ -335,6 +341,26 @@ const Dashboard = ({ userContext, setUserContext, onGetRecommendation }) => {
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Live Analytics Dashboard Section */}
+            <div className="pt-4 border-t border-slate-800">
+                <div className="flex items-center gap-3 mb-8">
+                    <div className="p-3 bg-cyan-500/10 rounded-2xl">
+                        <BarChart3 className="text-cyan-400" size={24} />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-100">Live Biometric Analytics</h2>
+                        <p className="text-sm text-slate-500 font-bold uppercase tracking-wider">Real-time performance metrics</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <StepsChart />
+                    <CaloriesChart />
+                    <SleepChart />
+                    <ActivityChart />
                 </div>
             </div>
         </div>
