@@ -56,6 +56,29 @@ class AroMiAgent:
                 return "FALLBACK_TRIGGERED"
             raise e
 
+    def _build_prompt(self, message: str, context: UserContext) -> str:
+        """Constructs a detailed prompt with user context."""
+        goals_str = ", ".join(context.health_goals) if context.health_goals else "General wellness"
+        return f"""
+        You are AroMi, a highly personalized and empathetic AI Wellness Coach.
+        User Context for {context.name}:
+        - Current Mood: {context.mood}
+        - Energy Level: {context.energy_level}/10
+        - Recent Activity: {context.activity_type}
+        - Health Goals: {goals_str}
+        - Daily Steps: {context.steps}
+        - Last Meal Summary: {context.lifestyle_inputs.get('last_meal', 'Not recorded')}
+        
+        User's Message: "{message}"
+        
+        Instructions:
+        1. Respond directly to the user's message using their name.
+        2. Keep the context (mood, goals, energy) in mind when giving advice.
+        3. Be concise (2-4 sentences) and supportive.
+        4. If they are in pain or have medical symptoms, suggest a doctor while providing gentle comfort.
+        5. If they speak in a language other than English (like Telugu: "em chesthunav"), reply in English but acknowledge their sentiment.
+        """
+
     def generate_response(self, message: str, context: UserContext):
         try:
             if self.use_ai:
@@ -65,6 +88,7 @@ class AroMiAgent:
                     return response
             return self._fallback_response(message, context)
         except Exception as e:
+            print(f"Chat generation error: {e}")
             return self._fallback_response(message, context)
 
     def _fallback_response(self, message: str, context: UserContext):
@@ -76,34 +100,6 @@ class AroMiAgent:
         elif "eat" in message or "diet" in message or "food" in message:
              return f"With a {context.lifestyle_inputs.get('diet_type', 'balanced')} diet, focus on whole foods. Since your energy is {context.energy_level}/10, try something light but sustaining."
         return f"Hello {context.name}! I'm AroMi. I'm focusing on your {context.health_goals[0] if context.health_goals else 'wellness'} today. How can I support your journey specifically right now?"
-
-    def get_proactive_recommendation(self, context: UserContext) -> Recommendation:
-        try:
-            if self.use_gemini or self.use_rest_fallback:
-                prompt = f"""Generate a proactive health tip... [omitted for brevity]"""
-                # ... check for FALLBACK_TRIGGERED
-        except:
-            pass
-        
-        # Enhanced Fallbacks
-        if context.energy_level < 4:
-            return Recommendation(category="Physical", suggestion="15-min Power Nap", reasoning="Quick rest resets cognitive load for better focus.")
-        if "muscle gain" in context.health_goals:
-            return Recommendation(category="Lifestyle", suggestion="Protein Snack", reasoning="Supports muscle repair after your earlier activities.")
-        return Recommendation(category="Mental", suggestion="Mindful Minute", reasoning="Brief meditation reduces cortisol levels effectively.")
-
-    def generate_wellness_plan(self, context: UserContext):
-        try:
-            if self.use_gemini or self.use_rest_fallback:
-                prompt = f"""Create a JSON wellness plan... [omitted]"""
-                # ... same check
-        except:
-            pass
-        return {
-            "daily_tip": f"Progress is better than perfection, {context.name}. Keep going!",
-            "workout_plan": "20-minute bodyweight circuit (Squats, Push-ups, Lunges)" if context.energy_level > 6 else "15-minute gentle mobility flow",
-            "diet_suggestion": "Hydration first! Then a protein-rich meal with complex carbs."
-        }
 
     def get_proactive_recommendation(self, context: UserContext) -> Recommendation:
         if self.use_ai:
@@ -123,7 +119,7 @@ class AroMiAgent:
                 """
                 text = self._generate(prompt).strip()
                 
-                # Simple parsing (robustness can be improved)
+                # Simple parsing
                 lines = text.split('\n')
                 cat = "General"
                 sugg = "Take a moment for yourself."
@@ -218,14 +214,18 @@ class AroMiAgent:
         """Analyzes a meal image and provides nutritional insights using Groq Vision."""
         if self.use_ai:
             try:
-                # Use Groq Vision model
+                if not image_data.startswith("data:image"):
+                    if image_data.startswith("/9j/"): 
+                        image_data = f"data:image/jpeg;base64,{image_data}"
+                    elif image_data.startswith("iVBORw0KGgo"): 
+                        image_data = f"data:image/png;base64,{image_data}"
+
                 url = "https://api.groq.com/openai/v1/chat/completions"
                 headers = {
                     'Content-Type': 'application/json',
                     'Authorization': f'Bearer {self.api_key}'
                 }
                 
-                # Highly directive and descriptive prompt for better vision results
                 prompt_text = f"""
                 You are AroMi, the AI Wellness Coach.
                 Task: Analyze the attached meal image for {context.name}.
@@ -239,47 +239,30 @@ class AroMiAgent:
                 4. Advice: What is ONE thing they could add or remove to make this meal more balanced?
                 
                 Tone: Be expert, encouraging, and brief.
-                If the image does NOT contain food, politely ask them to upload a photo of their meal.
                 """
                 
                 data = {
-                    "model": "llama-3.2-11b-vision-preview",
+                    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
                     "messages": [
                         {
                             "role": "user",
                             "content": [
-                                {
-                                    "type": "text", 
-                                    "text": prompt_text
-                                },
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": image_data,
-                                        "detail": "low" # Speed up and handle large base64 better
-                                    }
-                                }
+                                {"type": "text", "text": prompt_text},
+                                {"type": "image_url", "image_url": {"url": image_data, "detail": "low"}}
                             ]
                         }
                     ],
                     "max_tokens": 800,
-                    "temperature": 0.1 # Lower temperature for better accuracy in recognition
+                    "temperature": 0.1
                 }
                 
-                print(f"Sending meal analysis request to Groq for {context.name}...")
                 response = requests.post(url, headers=headers, json=data, timeout=30)
-                
                 if response.status_code != 200:
-                    error_msg = response.json().get('error', {}).get('message', 'Unknown error')
-                    print(f"Groq API Error ({response.status_code}): {error_msg}")
-                    return f"AroMi is having trouble seeing the meal clearly right now ({error_msg}). Please try again with a smaller file or better lighting."
+                    return f"AroMi is having trouble seeing the meal clearly right now. Please try again."
 
-                analysis = response.json()['choices'][0]['message']['content']
-                print("✓ Analysis generated successfully.")
-                return analysis
+                return response.json()['choices'][0]['message']['content']
                 
             except Exception as e:
-                print(f"Groq vision analysis failed: {str(e)}")
-                return f"I'm sorry, I encountered an error while analyzing the image. Please ensure it's a valid photo and try again."
+                return f"I'm sorry, I encountered an error while analyzing the image."
         
-        return "Groq Vision API is not configured. Please add a valid GROQ_API_KEY to your .env file."
+        return "Groq Vision API is not configured."

@@ -39,6 +39,7 @@ function App() {
     health_goals: [],
     steps: 0,
     calories_burned: 0,
+    todos: [],
     vitals: {
         heart_rate: 0,
         bmi: 0,

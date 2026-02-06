@@ -53,6 +53,7 @@ const WellnessPlan = ({ userContext }) => {
 
     const analyzeMeal = async (base64Image) => {
         setAnalyzing(true);
+        setMealInsight(""); // Clear previous
         try {
             const response = await axios.post('http://localhost:8000/analyze-meal', {
                 user_id: userContext.user_id,
@@ -62,7 +63,8 @@ const WellnessPlan = ({ userContext }) => {
             setMealInsight(response.data.insight);
         } catch (error) {
             console.error("Analysis failed", error);
-            setMealInsight("Sorry, I couldn't analyze the image. Please try again with a clearer photo.");
+            const errorMsg = error.response?.data?.insight || "Sorry, I couldn't analyze the image. Please try again with a clearer photo or smaller image.";
+            setMealInsight(errorMsg);
         } finally {
             setAnalyzing(false);
         }
