@@ -99,7 +99,7 @@ Create a `.env` file in the backend folder:
 
 ```env
 GROQ_API_KEY=your_groq_api_key
-api key=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
+
 MONGODB_URI=mongodb://localhost:27017/aromi
 ```
 
@@ -188,5 +188,6 @@ Contributions are welcome!
 ```
 
 ---
+
 
 
