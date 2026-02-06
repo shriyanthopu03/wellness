@@ -1,16 +1,6 @@
 import os
 import requests
 import json
-try:
-    import google.generativeai as genai
-    HAS_GEMINI = True
-except ImportError:
-    HAS_GEMINI = False
-except TypeError:
-    # Handle the "Metaclasses with custom tp_new" error for Python 3.14 compatibility
-    HAS_GEMINI = False
-    print("Warning: Google Generative AI not supported in this Python environment (Protobuf/Python version mismatch).")
-
 from models import UserContext, Recommendation
 from pathlib import Path
 from dotenv import load_dotenv
@@ -21,83 +11,54 @@ load_dotenv(dotenv_path=env_path)
 
 class AroMiAgent:
     def __init__(self):
-        self.api_key = os.getenv("GEMINI_API_KEY")
-        self.use_gemini = False
-        self.use_rest_fallback = False
+        # Only use Groq for all AI tasks
+        self.api_key = os.getenv("GROQ_API_KEY") or os.getenv("GEMINI_API_KEY")
+        self.use_ai = False
         
-        # Check for both Gemini and Grok/provided key formats
-        if self.api_key and "your_gemini_api_key_here" not in self.api_key:
-            # If it's a Grok/OpenAI-compatible key from the user
-            if self.api_key.startswith("gsk_"):
-                self.use_rest_fallback = True
-                print("Using Grok API via REST.")
-            elif HAS_GEMINI:
-                try:
-                    genai.configure(api_key=self.api_key)
-                    self.model = genai.GenerativeModel('gemini-3-flash-preview')
-                    self.use_gemini = True
-                    print("Gemini API initialized successfully (SDK).")
-                except Exception as e:
-                    print(f"Gemini SDK init failed: {e}. Falling back to REST.")
-                    self.use_rest_fallback = True
-            else:
-                print("Gemini SDK unavailable. Using REST API fallback.")
-                self.use_rest_fallback = True
+        if self.api_key and self.api_key.startswith("gsk_"):
+            self.use_ai = True
+            print("✓ AroMi initialized with Groq API.")
         else:
-            print(f"API Key missing or default. Using offline mode.")
+            print("⚠ Groq API Key (gsk_...) missing. AroMi is running in offline mode.")
 
-    def _call_gemini_rest(self, prompt: str, model: str = None) -> str:
+    def _call_groq_rest(self, prompt: str, model: str = None) -> str:
         try:
-            # Check if it's a Grok key
-            if self.api_key.startswith("gsk_"):
-                # Use llama-3.3-70b-versatile or a vision model if specified
-                api_model = model if model else "llama-3.3-70b-versatile"
-                url = "https://api.groq.com/openai/v1/chat/completions"
-                headers = {
-                    'Content-Type': 'application/json',
-                    'Authorization': f'Bearer {self.api_key}'
-                }
-                data = {
-                    "model": api_model,
-                    "messages": [{"role": "user", "content": prompt}]
-                }
-                response = requests.post(url, headers=headers, json=data)
-                response.raise_for_status()
-                result = response.json()
-                return result['choices'][0]['message']['content']
-            
-            # Default to Gemini REST
-            api_model = model if model else "gemini-3-flash-preview"
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{api_model}:generateContent?key={self.api_key}"
-            headers = {'Content-Type': 'application/json'}
-            data = {"contents": [{"parts": [{"text": prompt}]}]}
+            # Groq implementation
+            api_model = model if model else "llama-3.3-70b-versatile"
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.api_key}'
+            }
+            data = {
+                "model": api_model,
+                "messages": [{"role": "user", "content": prompt}]
+            }
             response = requests.post(url, headers=headers, json=data)
             response.raise_for_status()
             result = response.json()
-            return result['candidates'][0]['content']['parts'][0]['text']
+            return result['choices'][0]['message']['content']
         except Exception as e:
-            print(f"REST API Validation Error: {e}")
+            print(f"Groq API Error: {e}")
             raise e
 
     def _generate(self, prompt: str) -> str:
         try:
-            if self.use_gemini:
-                return self.model.generate_content(prompt).text
-            elif self.use_rest_fallback:
-                return self._call_gemini_rest(prompt)
+            if self.use_ai:
+                return self._call_groq_rest(prompt)
             else:
                 raise Exception("AI Offline")
         except Exception as e:
             # Check for rate limit or service unavailable
             error_str = str(e).lower()
             if "429" in error_str or "503" in error_str or "unavailable" in error_str:
-                print(f"Warning: AI Model experiencing high load. Switching to enhanced fallback.")
+                print(f"Warning: Groq API experiencing high load. Switching to offline fallback.")
                 return "FALLBACK_TRIGGERED"
             raise e
 
     def generate_response(self, message: str, context: UserContext):
         try:
-            if self.use_gemini or self.use_rest_fallback:
+            if self.use_ai:
                 prompt = self._build_prompt(message, context)
                 response = self._generate(prompt)
                 if response != "FALLBACK_TRIGGERED":
@@ -145,7 +106,7 @@ class AroMiAgent:
         }
 
     def get_proactive_recommendation(self, context: UserContext) -> Recommendation:
-        if self.use_gemini or self.use_rest_fallback:
+        if self.use_ai:
             try:
                 prompt = f"""
                 Generate a proactive health tip based on this user context:
@@ -175,7 +136,7 @@ class AroMiAgent:
                     
                 return Recommendation(category=cat, suggestion=sugg, reasoning=reas)
             except Exception as e:
-                print(f"Gemini recommendation error: {e}")
+                print(f"Groq recommendation error: {e}")
         
         # Fallback recommendations
         if context.mood == "stressed":
@@ -193,7 +154,7 @@ class AroMiAgent:
 
     def generate_wellness_plan(self, context: UserContext):
         """Generates a daily plan including tip, workout, and diet."""
-        if self.use_gemini or self.use_rest_fallback:
+        if self.use_ai:
             try:
                 prompt = f"""
                 Create a customized daily wellness plan for:
@@ -212,7 +173,7 @@ class AroMiAgent:
                 text = self._generate(prompt).replace('```json', '').replace('```', '').strip()
                 return json.loads(text)
             except Exception as e:
-                print(f"Gemini wellness plan error: {e}")
+                print(f"Groq wellness plan error: {e}")
         
         # Fallback Offline Plan
         plan = {
@@ -231,7 +192,7 @@ class AroMiAgent:
 
     def clarify_doubt(self, question: str, context: UserContext) -> str:
         """Clarifies any doubts with a helpful persona."""
-        if self.use_gemini or self.use_rest_fallback:
+        if self.use_ai:
             try:
                 prompt = f"""
                 You are AroMi, a knowledgeable and empathetic AI assistant.
@@ -248,14 +209,14 @@ class AroMiAgent:
                 """
                 return self._generate(prompt)
             except Exception as e:
-                print(f"Gemini doubt error: {e}")
+                print(f"Groq doubt error: {e}")
         
         # Fallback Offline
         return f"That's a great question, {context.name}. Since I'm currently offline, I can't look up that specific information. Generally, getting clear answers requires checking reliable sources. If this is medical, please consult a doctor."
 
     def analyze_meal(self, image_data: str, context: UserContext) -> str:
-        """Analyzes a meal image (as base64 or link) and provides nutritional insights."""
-        if self.use_rest_fallback and self.api_key.startswith("gsk_"):
+        """Analyzes a meal image and provides nutritional insights using Groq Vision."""
+        if self.use_ai:
             try:
                 # Use Groq Vision model
                 url = "https://api.groq.com/openai/v1/chat/completions"
@@ -263,25 +224,62 @@ class AroMiAgent:
                     'Content-Type': 'application/json',
                     'Authorization': f'Bearer {self.api_key}'
                 }
-                # Groq vision expects a specific format for images
+                
+                # Highly directive and descriptive prompt for better vision results
+                prompt_text = f"""
+                You are AroMi, the AI Wellness Coach.
+                Task: Analyze the attached meal image for {context.name}.
+                
+                Instructions:
+                1. Describe precisely what food and drinks you see.
+                2. Provide a breakdown of:
+                   - Estimated Calories (total)
+                   - Protein, Carbohydrates, and Fats (in grams)
+                3. Health Advice: How does this align with {context.health_goals if context.health_goals else "general fitness"}?
+                4. Advice: What is ONE thing they could add or remove to make this meal more balanced?
+                
+                Tone: Be expert, encouraging, and brief.
+                If the image does NOT contain food, politely ask them to upload a photo of their meal.
+                """
+                
                 data = {
                     "model": "llama-3.2-11b-vision-preview",
                     "messages": [
                         {
                             "role": "user",
                             "content": [
-                                {"type": "text", "text": f"Analyze this meal for {context.name} who is focusing on {context.health_goals[0] if context.health_goals else 'general wellness'}. Provide estimated calories, macronutrients, and a health score out of 10. Be encouraging!"},
-                                {"type": "image_url", "image_url": {"url": image_data}}
+                                {
+                                    "type": "text", 
+                                    "text": prompt_text
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": image_data,
+                                        "detail": "low" # Speed up and handle large base64 better
+                                    }
+                                }
                             ]
                         }
                     ],
-                    "max_tokens": 500
+                    "max_tokens": 800,
+                    "temperature": 0.1 # Lower temperature for better accuracy in recognition
                 }
-                response = requests.post(url, headers=headers, json=data)
-                response.raise_for_status()
-                return response.json()['choices'][0]['message']['content']
+                
+                print(f"Sending meal analysis request to Groq for {context.name}...")
+                response = requests.post(url, headers=headers, json=data, timeout=30)
+                
+                if response.status_code != 200:
+                    error_msg = response.json().get('error', {}).get('message', 'Unknown error')
+                    print(f"Groq API Error ({response.status_code}): {error_msg}")
+                    return f"AroMi is having trouble seeing the meal clearly right now ({error_msg}). Please try again with a smaller file or better lighting."
+
+                analysis = response.json()['choices'][0]['message']['content']
+                print("✓ Analysis generated successfully.")
+                return analysis
+                
             except Exception as e:
-                print(f"Groq vision analysis failed: {e}")
-                return "I couldn't analyze the image right now, but a typical healthy meal should be balanced with proteins and greens!"
+                print(f"Groq vision analysis failed: {str(e)}")
+                return f"I'm sorry, I encountered an error while analyzing the image. Please ensure it's a valid photo and try again."
         
-        return "Meal analysis requires an active AI connection. Please ensure your API key is configured correctly."
+        return "Groq Vision API is not configured. Please add a valid GROQ_API_KEY to your .env file."
