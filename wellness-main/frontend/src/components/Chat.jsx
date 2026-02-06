@@ -9,6 +9,12 @@ const Chat = ({ messages, setMessages, userContext }) => {
     const [wasVoiceRequest, setWasVoiceRequest] = useState(false);
     const messagesEndRef = useRef(null);
     const recognitionRef = useRef(null);
+    const sendMessageRef = useRef(null);
+
+    // Keep sendMessageRef updated with the latest sendMessage function
+    useEffect(() => {
+        sendMessageRef.current = sendMessage;
+    }, [input, wasVoiceRequest, userContext]);
 
     useEffect(() => {
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -16,12 +22,17 @@ const Chat = ({ messages, setMessages, userContext }) => {
             recognitionRef.current = new SpeechRecognition();
             recognitionRef.current.continuous = false;
             recognitionRef.current.interimResults = false;
+            recognitionRef.current.lang = 'en-US';
 
             recognitionRef.current.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
-                setInput(transcript);
-                setIsListening(false);
-                setWasVoiceRequest(true); // Flag that this was a voice input
+                if (transcript) {
+                    setIsListening(false);
+                    // Use the ref to call the latest sendMessage
+                    if (sendMessageRef.current) {
+                        sendMessageRef.current(null, transcript);
+                    }
+                }
             };
 
             recognitionRef.current.onerror = (event) => {
@@ -45,13 +56,19 @@ const Chat = ({ messages, setMessages, userContext }) => {
         }
     };
 
+    const [isSpeaking, setIsSpeaking] = useState(false);
+
     const speak = (text) => {
         if ('speechSynthesis' in window) {
-            // Cancel any current speech
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.rate = 1.0;
             utterance.pitch = 1.0;
+            
+            utterance.onstart = () => setIsSpeaking(true);
+            utterance.onend = () => setIsSpeaking(false);
+            utterance.onerror = () => setIsSpeaking(false);
+            
             window.speechSynthesis.speak(utterance);
         }
     };
@@ -64,13 +81,14 @@ const Chat = ({ messages, setMessages, userContext }) => {
         scrollToBottom();
     }, [messages]);
 
-    const sendMessage = async (e) => {
+    const sendMessage = async (e, directText = null) => {
         if (e) e.preventDefault();
-        if (!input.trim()) return;
+        const textToSend = directText || input;
+        if (!textToSend.trim()) return;
 
-        const userMsg = { role: 'user', content: input };
+        const userMsg = { role: 'user', content: textToSend };
         setMessages(prev => [...prev, userMsg]);
-        const currentWasVoice = wasVoiceRequest; // Capture flag
+        const currentWasVoice = wasVoiceRequest || !!directText; // Capture flag
         setInput("");
         setWasVoiceRequest(false);
         setIsLoading(true);
@@ -110,15 +128,22 @@ const Chat = ({ messages, setMessages, userContext }) => {
                     <div>
                         <h2 className="font-black text-slate-100 uppercase tracking-wider text-sm">AroMi Coach</h2>
                         <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Neural Mode Active</span>
+                            <span className={`w-2 h-2 rounded-full animate-pulse ${isSpeaking ? 'bg-brand shadow-[0_0_8px_rgba(45,212,191,0.5)]' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'}`}></span>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                {isSpeaking ? 'Coach is Speaking...' : 'Neural Mode Active'}
+                            </span>
                         </div>
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
-                        <Volume2 size={14} className="text-slate-400" />
-                    </div>
+                    <button 
+                        onClick={() => window.speechSynthesis.cancel()}
+                        className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${isSpeaking ? 'bg-brand/20 border-brand text-brand' : 'bg-slate-800 border-slate-700 text-slate-500 opacity-50'}`}
+                        title="Stop Speaking"
+                        disabled={!isSpeaking}
+                    >
+                        <Volume2 size={14} />
+                    </button>
                 </div>
             </div>
 
@@ -175,8 +200,9 @@ const Chat = ({ messages, setMessages, userContext }) => {
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="System protocol or voice query..."
+                        placeholder={isListening ? "Listening... Speak now." : "System protocol or voice query..."}
                         className="flex-1 bg-transparent border-none focus:ring-0 text-slate-200 placeholder:text-slate-600 text-sm py-2"
+                        readOnly={isListening}
                     />
                     <button 
                         type="submit" 
