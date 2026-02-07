@@ -13,12 +13,27 @@ class Database:
     db: Optional[AsyncIOMotorDatabase] = None
 
     @classmethod
-    def connect_db(cls):
+    async def connect_db(cls):
         """Connect to MongoDB"""
-        mongodb_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017/aromi_db")
-        cls.client = AsyncIOMotorClient(mongodb_uri)
-        cls.db = cls.client.get_database()
-        print("✓ Connected to MongoDB")
+        # Try both common names for MongoDB URI
+        mongodb_uri = os.getenv("MONGODB_URI") or os.getenv("MONGO_URI") or "mongodb://localhost:27017/aromi_db"
+        
+        try:
+            cls.client = AsyncIOMotorClient(mongodb_uri, serverSelectionTimeoutMS=5000)
+            
+            # Use 'aromi_db' if no database is specified in the URI
+            db_name = mongodb_uri.split("/")[-1].split("?")[0]
+            if not db_name:
+                cls.db = cls.client.get_database("aromi_db")
+            else:
+                cls.db = cls.client.get_database()
+                
+            # Verify connection
+            await cls.client.admin.command('ping')
+            print(f"✓ Connected to MongoDB Database: {cls.db.name}")
+        except Exception as e:
+            print(f"✗ MongoDB Connection Error: {e}")
+            raise e
 
     @classmethod
     def close_db(cls):

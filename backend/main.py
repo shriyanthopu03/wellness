@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from models import ChatRequest, UserContext, ChatMessage, Recommendation, DoubtRequest, MealAnalysisRequest
+from models import ChatRequest, UserContext, ChatMessage, Recommendation, DoubtRequest, MealAnalysisRequest, PrescriptionAnalysisRequest
 from agent import AroMiAgent
 from db import Database, get_database
 from dotenv import load_dotenv
@@ -12,9 +12,9 @@ load_dotenv()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    Database.connect_db()
+    await Database.connect_db()
     # Data is now persistent. If you need to reset, do it manually or via a reset endpoint.
-    print("✓ Connected to Database")
+    print("✓ Backend Biological Substrate Online")
     yield
     # Shutdown
     Database.close_db()
@@ -68,15 +68,23 @@ async def get_user(user_id: str):
 async def login_endpoint(request: dict):
     try:
         email = request.get("email")
+        password = request.get("password")
         if not email:
             raise HTTPException(status_code=400, detail="Email is required")
+        if not password:
+            raise HTTPException(status_code=400, detail="Password is required")
         
-        user_id = email.replace("@", "_").replace(".", "_")
+        # Normalize email for case-insensitive lookup
+        user_id = email.lower().strip().replace("@", "_").replace(".", "_")
         users_col, _, _, _ = get_collections()
         user = await users_col.find_one({"user_id": user_id}, {"_id": 0})
         
         if not user:
             raise HTTPException(status_code=404, detail="User not found. Please sign up first.")
+        
+        # Security: Compare password (In production, use hashing like bcrypt)
+        if user.get("password") != password:
+            raise HTTPException(status_code=401, detail="Invalid credentials. Security system rejected access.")
         
         return user
     except Exception as e:
@@ -87,6 +95,9 @@ async def login_endpoint(request: dict):
 async def signup_endpoint(request: UserContext):
     try:
         users_col, _, _, _ = get_collections()
+        # Normalize user_id to ensure consistency
+        request.user_id = request.user_id.lower().strip()
+        
         # Check if user already exists
         existing = await users_col.find_one({"user_id": request.user_id})
         if existing:
@@ -160,14 +171,23 @@ async def analyze_meal_endpoint(request: MealAnalysisRequest):
     insight = agent.analyze_meal(request.image_data, request.context)
     return {"insight": insight}
 
+@app.post("/analyze-prescription")
+async def analyze_prescription_endpoint(request: PrescriptionAnalysisRequest):
+    analysis = agent.analyze_prescription(request.image_data, request.context)
+    return {"analysis": analysis}
+
 @app.get("/store")
 def get_store_items():
     return [
-        {"id": 1, "name": "Smart Yoga Mat", "price": "₹2,499", "image": "https://m.media-amazon.com/images/I/61bd90sMnSL._AC_UF1000,1000_QL80_.jpg", "category": "Fitness"},
-        {"id": 2, "name": "Meditation Cushion", "price": "₹1,499", "image": "https://m.media-amazon.com/images/I/71wHKtL+JCL.jpg", "category": "Mindfulness"},
-        {"id": 3, "name": "Hydro Flask", "price": "₹1,199", "image": "https://m.media-amazon.com/images/I/61ngk9C4kOL._AC_UF1000,1000_QL80_.jpg", "category": "Lifestyle"},
-        {"id": 4, "name": "Resistance Bands", "price": "₹499", "image": "https://m.media-amazon.com/images/I/71+pOdQ7iKL._AC_UF894,1000_QL80_.jpg", "category": "Fitness"},
-        {"id": 5, "name": "Aromatherapy Diffuser", "price": "₹999", "image": "https://m.media-amazon.com/images/I/71+b+9e9jZL._AC_UF894,1000_QL80_.jpg", "category": "Relaxation"}
+        {"id": 0, "name": "AroMi Smart Yoga Mat", "price": "₹3,999", "image": "smart-mat.webp", "category": "Bio-Feedback Gear"},
+        {"id": 7, "name": "AroMi Hydro Flask", "price": "₹1,499", "image": "hydro-flask.jpg", "category": "Hydration"},
+        {"id": 8, "name": "Aromatherapy Diffuser", "price": "₹1,899", "image": "diffuser.jpg", "category": "Relaxation"},
+        {"id": 1, "name": "Pure Whey Isolate", "price": "₹4,899", "image": "https://m.media-amazon.com/images/I/718P06p28LL._SL1500_.jpg", "category": "Protein Powder"},
+        {"id": 2, "name": "Pre-Workout Matrix", "price": "₹1,899", "image": "https://m.media-amazon.com/images/I/81I-u8tUP5L._SL1500_.jpg", "category": "Fitness Supplement"},
+        {"id": 3, "name": "Premium Omega-3", "price": "₹899", "image": "https://m.media-amazon.com/images/I/61kL-u1CxlL._SL1500_.jpg", "category": "Wellness Supplement"},
+        {"id": 4, "name": "Daily Multi-Vitamin", "price": "₹699", "image": "https://m.media-amazon.com/images/I/61mOn-qUoFL._SL1500_.jpg", "category": "Wellness Supplement"},
+        {"id": 5, "name": "Creatine Monohydrate", "price": "₹1,299", "image": "https://m.media-amazon.com/images/I/61r59uVlqML._SL1000_.jpg", "category": "Fitness Supplement"},
+        {"id": 6, "name": "BCAA Energy Hub", "price": "₹1,499", "image": "https://m.media-amazon.com/images/I/71X8k-NqN8L._SL1500_.jpg", "category": "Fitness Supplement"}
     ]
 
 if __name__ == "__main__":

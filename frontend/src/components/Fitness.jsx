@@ -152,11 +152,6 @@ const Fitness = ({ userContext, setUserContext }) => {
                     </div>
                     <div className="relative z-10 flex flex-col items-center gap-4">
                         <div className="flex items-center gap-6">
-                            <div className="text-center">
-                                <span className="block text-3xl font-black italic">{userContext.vitals?.heart_rate || 72}</span>
-                                <span className="text-[9px] uppercase font-black opacity-60 tracking-widest">BPM Link</span>
-                            </div>
-                            <div className="h-12 w-px bg-slate-950/20"></div>
                             <button 
                                 onClick={() => { setActiveSession(null); setTimeLeft(0); }}
                                 className="bg-slate-950 text-white px-10 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] hover:scale-105 active:scale-95 transition-all shadow-xl italic"

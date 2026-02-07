@@ -1,30 +1,46 @@
 import React, { useState } from 'react';
-import { User, Activity, Battery, Smile, Save } from 'lucide-react';
+import { User, Activity, Battery, Smile, Save, Loader2 } from 'lucide-react';
+import { userAPI } from '../services/api';
 
 const Profile = ({ userContext, setUserContext }) => {
+    // Refresh formData when userContext changes (e.g., after login)
     const [formData, setFormData] = useState({ 
         ...userContext,
-        lifestyle_inputs: { ...userContext.lifestyle_inputs },
-        health_goals: [...userContext.health_goals],
-        vitals: { ...userContext.vitals }
+        lifestyle_inputs: { ...(userContext?.lifestyle_inputs || {}) },
+        health_goals: [...(userContext?.health_goals || [])],
+        vitals: { ...(userContext?.vitals || {}) }
     });
+
+    React.useEffect(() => {
+        // Only update local form if the User Identity actually changes (e.g. login/logout)
+        // This prevents background syncs (like heart rate) from resetting the form while typing
+        setFormData({
+            ...userContext,
+            lifestyle_inputs: { ...(userContext?.lifestyle_inputs || {}) },
+            health_goals: [...(userContext?.health_goals || [])],
+            vitals: { ...(userContext?.vitals || {}) }
+        });
+    }, [userContext.user_id]);
+
     const [status, setStatus] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
+        
         if (name.includes('.')) {
             const [parent, child] = name.split('.');
             setFormData(prev => ({
                 ...prev,
                 [parent]: {
                     ...prev[parent],
-                    [child]: child === 'sleep_hours' || child === 'heart_rate' ? parseFloat(value) : value
+                    [child]: ['sleep_hours', 'heart_rate'].includes(child) ? (value === '' ? null : parseFloat(value)) : value
                 }
             }));
         } else {
             setFormData(prev => ({
                 ...prev,
-                [name]: ['energy_level', 'age', 'height', 'weight'].includes(name) ? parseFloat(value) : value
+                [name]: ['energy_level', 'age', 'height', 'weight'].includes(name) ? (value === '' ? null : parseFloat(value)) : value
             }));
         }
     };
@@ -38,64 +54,78 @@ const Profile = ({ userContext, setUserContext }) => {
         }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
+        setStatus('');
         
         const { age, gender, height, weight, lifestyle_inputs } = formData;
         
         if (!age || !height || !weight) {
-            setStatus('Please fill in age, height, and weight for calculations.');
+            setStatus('Error: Biometric data incomplete (Age, Height, Weight required).');
+            setLoading(false);
             return;
         }
 
-        // BMI Calculation
-        const heightInM = height / 100;
-        const bmi = parseFloat((weight / (heightInM * heightInM)).toFixed(1));
+        try {
+            // BMI Calculation
+            const heightInM = height / 100;
+            const bmi = parseFloat((weight / (heightInM * heightInM)).toFixed(1));
 
-        // BMR Calculation (Mifflin-St Jeor)
-        let bmr;
-        if (gender === 'male') {
-            bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
-        } else {
-            bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
-        }
-
-        // TDEE (Daily Calories)
-        const activityFactors = {
-            'sedentary': 1.2,
-            'light': 1.375,
-            'moderate': 1.55,
-            'active': 1.725,
-            'very_active': 1.9
-        };
-        const factor = activityFactors[lifestyle_inputs.activity_level] || 1.2;
-        const daily_calories = Math.round(bmr * factor);
-
-        // Fitness Level Heuristic
-        let fitness_level = 'Fair';
-        if (bmi >= 18.5 && bmi <= 24.9) {
-            if (factor >= 1.725) fitness_level = 'Excellent';
-            else if (factor >= 1.55) fitness_level = 'Good';
-            else fitness_level = 'Fair';
-        } else if (bmi >= 25 && bmi <= 29.9) {
-            if (factor >= 1.725) fitness_level = 'Good';
-            else fitness_level = 'Fair';
-        } else {
-            fitness_level = 'Needs Attention';
-        }
-
-        const updatedData = {
-            ...formData,
-            vitals: { 
-                ...formData.vitals, 
-                bmi: bmi,
-                daily_calories: daily_calories,
-                fitness_level: fitness_level
+            // BMR Calculation (Mifflin-St Jeor)
+            let bmr;
+            if (gender === 'male') {
+                bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+            } else {
+                bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
             }
-        };
-        setUserContext(updatedData);
-        setStatus('Profile updated! Your Daily Calories: ' + daily_calories + ' kcal. Fitness Level: ' + fitness_level);
-        setTimeout(() => setStatus(''), 5000);
+
+            // TDEE (Daily Calories)
+            const activityFactors = {
+                'sedentary': 1.2,
+                'light': 1.375,
+                'moderate': 1.55,
+                'active': 1.725,
+                'very_active': 1.9
+            };
+            const factor = activityFactors[lifestyle_inputs.activity_level] || 1.2;
+            const daily_calories = Math.round(bmr * factor);
+
+            // Fitness Level Heuristic
+            let fitness_level = 'Fair';
+            if (bmi >= 18.5 && bmi <= 24.9) {
+                if (factor >= 1.725) fitness_level = 'Excellent';
+                else if (factor >= 1.55) fitness_level = 'Good';
+                else fitness_level = 'Fair';
+            } else if (bmi >= 25 && bmi <= 29.9) {
+                if (factor >= 1.725) fitness_level = 'Good';
+                else fitness_level = 'Fair';
+            } else {
+                fitness_level = 'Needs Attention';
+            }
+
+            const updatedData = {
+                ...formData,
+                vitals: { 
+                    ...formData.vitals, 
+                    bmi: bmi,
+                    daily_calories: daily_calories,
+                    fitness_level: fitness_level
+                }
+            };
+
+            // Call API to persist data
+            await userAPI.updateUser(updatedData);
+            
+            setUserContext(updatedData);
+            setStatus(`Profile Synchronized! Daily Target: ${daily_calories} kcal | Tier: ${fitness_level}`);
+        } catch (error) {
+            console.error('Update failed:', error);
+            setStatus('Error: Connection lost. Failed to synchronize with neural core.');
+        } finally {
+            setLoading(false);
+            setTimeout(() => setStatus(''), 8000);
+        }
     };
 
     return (
@@ -131,12 +161,13 @@ const Profile = ({ userContext, setUserContext }) => {
                                     <div className="h-px flex-1 bg-slate-800"></div>
                                 </h3>
                                 <div className="space-y-6">
-                                    <InputField label="Identity Name" name="name" value={formData.name} onChange={handleChange} />
+                                    <InputField label="Identity Name" name="name" value={formData.name || ''} onChange={handleChange} />
                                     <div className="grid grid-cols-2 gap-6">
-                                        <InputField label="Current Age" name="age" value={formData.age} onChange={handleChange} type="number" />
+                                        <InputField label="Current Age" name="age" value={formData.age === null ? '' : formData.age} onChange={handleChange} type="number" />
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-2 italic">Sex Pattern</label>
-                                            <select name="gender" value={formData.gender} onChange={handleChange} className="w-full px-6 py-5 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 focus:border-brand outline-none transition-all font-black uppercase tracking-widest text-[10px]">
+                                            <select name="gender" value={formData.gender || ''} onChange={handleChange} className="w-full px-6 py-5 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 focus:border-brand outline-none transition-all font-black uppercase tracking-widest text-[10px]">
+                                                <option value="">Select Gender</option>
                                                 <option value="male">Male</option>
                                                 <option value="female">Female</option>
                                                 <option value="other">Other</option>
@@ -145,26 +176,26 @@ const Profile = ({ userContext, setUserContext }) => {
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-2 italic">Body Mass (KG)</label>
-                                        <input type="number" name="weight" value={formData.weight} onChange={handleChange} className="w-full px-6 py-5 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 focus:border-brand outline-none transition-all font-black" />
+                                        <input type="number" name="weight" value={formData.weight === null ? '' : formData.weight} onChange={handleChange} className="w-full px-6 py-5 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 focus:border-brand outline-none transition-all font-black" />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-2 italic">Stature (CM)</label>
-                                        <input type="number" name="height" value={formData.height} onChange={handleChange} className="w-full px-6 py-5 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 focus:border-brand outline-none transition-all font-black" />
+                                        <input type="number" name="height" value={formData.height === null ? '' : formData.height} onChange={handleChange} className="w-full px-6 py-5 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 focus:border-brand outline-none transition-all font-black" />
                                     </div>
                                     <div className="bg-slate-950 p-8 rounded-[2rem] border border-slate-800 shadow-inner flex flex-col justify-center space-y-4">
                                         <p className="flex justify-between text-[11px] font-black">
                                             <span className="text-slate-600 uppercase tracking-widest italic">Body Mass Index</span>
-                                            <span className="text-brand text-lg">{formData.vitals.bmi || '--'}</span>
+                                            <span className="text-brand text-lg">{formData.vitals?.bmi || '--'}</span>
                                         </p>
                                         <div className="h-px bg-slate-900 w-full"></div>
                                         <p className="flex justify-between text-[11px] font-black">
                                             <span className="text-slate-600 uppercase tracking-widest italic">Caloric Equilibrium</span>
-                                            <span className="text-brand text-lg">{formData.vitals.daily_calories || '--'}</span>
+                                            <span className="text-brand text-lg">{formData.vitals?.daily_calories || '--'}</span>
                                         </p>
                                         <div className="h-px bg-slate-900 w-full"></div>
                                         <p className="flex justify-between text-[11px] font-black">
                                             <span className="text-slate-600 uppercase tracking-widest italic">Physiological Tier</span>
-                                            <span className="text-brand text-lg">{formData.vitals.fitness_level || '--'}</span>
+                                            <span className="text-brand text-lg">{formData.vitals?.fitness_level || '--'}</span>
                                         </p>
                                     </div>
                                 </div>
@@ -206,7 +237,7 @@ const Profile = ({ userContext, setUserContext }) => {
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-2 italic">Recharge Cycle (HRS)</label>
-                                        <input type="number" name="lifestyle_inputs.sleep_hours" value={formData.lifestyle_inputs.sleep_hours} onChange={handleChange} className="w-full px-6 py-5 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 focus:border-brand outline-none transition-all font-black" />
+                                        <input type="number" name="lifestyle_inputs.sleep_hours" value={formData.lifestyle_inputs.sleep_hours === null ? '' : formData.lifestyle_inputs.sleep_hours} onChange={handleChange} className="w-full px-6 py-5 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 focus:border-brand outline-none transition-all font-black" />
                                     </div>
                                 </div>
                             </section>
@@ -240,10 +271,11 @@ const Profile = ({ userContext, setUserContext }) => {
                         <div className="pt-10 border-t border-slate-800">
                             <button
                                 type="submit"
-                                className="w-full py-8 bg-brand text-slate-950 font-black rounded-[2.5rem] hover:scale-[1.02] active:scale-95 transition-all shadow-2xl shadow-brand/20 flex items-center justify-center gap-6 uppercase tracking-[0.4em] text-sm italic"
+                                disabled={loading}
+                                className={`w-full py-8 bg-brand text-slate-950 font-black rounded-[2.5rem] hover:scale-[1.02] active:scale-95 transition-all shadow-2xl shadow-brand/20 flex items-center justify-center gap-6 uppercase tracking-[0.4em] text-sm italic ${loading ? 'opacity-50' : ''}`}
                             >
-                                <Save size={24} />
-                                Synchronize Neural Identity
+                                {loading ? <Loader2 className="animate-spin" size={24} /> : <Save size={24} />}
+                                {loading ? 'Saving Changes...' : 'Update & Save Profile'}
                             </button>
                             {status && (
                                 <div className="mt-8 p-6 bg-slate-950 border border-brand/20 text-brand text-center text-[10px] font-black uppercase tracking-widest rounded-2xl animate-pulse italic">
@@ -257,5 +289,18 @@ const Profile = ({ userContext, setUserContext }) => {
         </div>
     );
 };
+
+const InputField = ({ label, name, value, onChange, type = "text" }) => (
+    <div className="space-y-2">
+        <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-2 italic">{label}</label>
+        <input 
+            type={type} 
+            name={name} 
+            value={value || ''} 
+            onChange={onChange} 
+            className="w-full px-6 py-5 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 focus:border-brand outline-none transition-all font-black" 
+        />
+    </div>
+);
 
 export default Profile;

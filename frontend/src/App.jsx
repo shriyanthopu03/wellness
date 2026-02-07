@@ -6,28 +6,28 @@ import WellnessPlan from './components/WellnessPlan';
 import Store from './components/Store';
 import Doubts from './components/Doubts';
 import Fitness from './components/Fitness';
-import Nutrition from './components/Nutrition';
 import Mindfulness from './components/Mindfulness';
 import Reminders from './components/Reminders';
 import Reports from './components/Reports';
 import Login from './components/Login';
 import axios from 'axios';
 import { userAPI } from './services/api';
-import { LayoutDashboard, MessageSquare, HeartPulse, ShoppingBag, HelpCircle, UserCircle, Activity, Utensils, Wind, RefreshCw, Bell, Users, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HeartPulse, ShoppingBag, HelpCircle, UserCircle, Activity, Wind, RefreshCw, Bell, Users, BarChart2, LogOut } from 'lucide-react';
 import { useEffect } from 'react';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [cart, setCart] = useState([]);
   
   const [userContext, setUserContext] = useState({
-    user_id: "user_123",
+    user_id: localStorage.getItem('aromi_user_id') || "user_123",
     name: "",
-    age: 0,
-    gender: "",
-    height: 0,
-    weight: 0,
+    age: null,
+    gender: null,
+    height: null,
+    weight: null,
     mood: "neutral",
     energy_level: 5,
     activity_type: "sedentary",
@@ -47,29 +47,63 @@ function App() {
         fitness_level: "Unknown",
         sleep_quality: "unknown"
     },
-    location: null,
     last_interaction: null
   });
 
-  // Fetch initial data from DB on login
+  // Check for existing session on mount
   useEffect(() => {
-    if (isAuthenticated) {
+    const savedUserId = localStorage.getItem('aromi_user_id');
+    if (savedUserId) {
+        setIsAuthenticated(true);
+        userAPI.getUser(savedUserId).then(data => {
+            if (data) {
+                setUserContext(data);
+            }
+        }).catch(err => {
+            console.error("Session restoration failed:", err);
+            localStorage.removeItem('aromi_user_id');
+            setIsAuthenticated(false);
+        });
+    }
+  }, []);
+
+  const handleLogin = (userData) => {
+    setUserContext(userData);
+    setIsAuthenticated(true);
+    localStorage.setItem('aromi_user_id', userData.user_id);
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('aromi_user_id');
+    setActiveTab('dashboard');
+  };
+
+  // Fetch initial data from DB on login (Only if not already loaded by login)
+  useEffect(() => {
+    if (isAuthenticated && !userContext.name) {
         userAPI.getUser(userContext.user_id).then(data => {
             if (data) {
                 setUserContext(data);
             }
         });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, userContext.user_id]);
 
-  // Save data to DB whenever goals, todos, or profile changes
+  // Save data to DB whenever goals, todos, or core profile changes
+  // Exclude heart_rate from the dependency to avoid constant server writes
   useEffect(() => {
     if (!isAuthenticated) return;
     
-    // Use a small delay/debounce for saving to avoid too many writes
+    setIsSyncing(true);
     const timer = setTimeout(() => {
-        userAPI.updateUser(userContext);
-    }, 2000);
+        userAPI.updateUser(userContext).then(() => {
+            setIsSyncing(false);
+        }).catch(err => {
+            console.error("Auto-sync failed:", err);
+            setIsSyncing(false);
+        });
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, [
@@ -78,12 +112,15 @@ function App() {
     userContext.name, 
     userContext.age, 
     userContext.weight, 
-    userContext.height, 
-    userContext.steps,
+    userContext.height,
     userContext.mood,
     userContext.energy_level,
+    userContext.activity_type,
     userContext.lifestyle_inputs,
-    userContext.vitals
+    userContext.vitals?.bmi,
+    userContext.vitals?.fitness_level,
+    userContext.steps,
+    userContext.calories_burned
   ]);
 
   // Real-time Data Sync Simulation
@@ -92,9 +129,10 @@ function App() {
 
     const syncInterval = setInterval(() => {
         setUserContext(prev => {
+            if (!prev.vitals) return prev;
             // Simulate natural heart rate fluctuation (68-76 bpm)
             const hrChange = Math.floor(Math.random() * 3) - 1;
-            const newHr = Math.max(60, Math.min(100, (prev.vitals?.heart_rate || 72) + hrChange));
+            const newHr = Math.max(60, Math.min(100, (prev.vitals.heart_rate || 72) + hrChange));
 
             return {
                 ...prev,
@@ -118,29 +156,10 @@ function App() {
         });
     }
 
-    // Real API: Geolocation
-    if ('geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition((pos) => {
-            setUserContext(prev => ({ 
-                ...prev, 
-                location: `${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}` 
-            }));
-        });
-    }
-
     return () => clearInterval(syncInterval);
   }, [isAuthenticated]);
 
   const [messages, setMessages] = useState([]);
-
-  const handleLogin = (userData) => {
-    setUserContext(prev => ({ 
-        ...prev, 
-        user_id: userData.user_id,
-        name: userData.name 
-    }));
-    setIsAuthenticated(true);
-  };
 
   const getProactiveRecommendation = async () => {
     try {
@@ -166,102 +185,88 @@ function App() {
         
         {/* Sidebar Navigation */}
         <aside className="fixed left-0 top-0 h-full w-20 md:w-64 bg-slate-900/50 backdrop-blur-xl border-r border-slate-800/50 z-50 flex flex-col items-center md:items-start p-4">
-             <div className="mb-12 md:px-4 py-6">
+             <div className="mb-8 md:px-4 py-6">
                 <h1 className="text-3xl font-black text-white tracking-tighter hidden md:block uppercase italic">
                     AroMi<span className="text-brand not-italic text-2xl">.AI</span>
                 </h1>
                 <span className="text-2xl font-black text-brand md:hidden">A.</span>
             </div>
 
-            <nav className="flex-1 w-full space-y-1.5 overflow-y-auto pr-1 custom-scrollbar">
+            <nav className="flex-1 w-full space-y-4 overflow-y-auto pr-1 flex flex-col custom-scrollbar py-4">
                 <NavButton 
-                    icon={<LayoutDashboard size={20}/>} 
+                    icon={<LayoutDashboard size={22}/>} 
                     label="Dashboard" 
                     active={activeTab === 'dashboard'} 
                     onClick={() => setActiveTab('dashboard')} 
                 />
                  <NavButton 
-                    icon={<Activity size={20}/>} 
+                    icon={<Activity size={22}/>} 
                     label="Fitness" 
                     active={activeTab === 'fitness'} 
                     onClick={() => setActiveTab('fitness')} 
                 />
                  <NavButton 
-                    icon={<Utensils size={20}/>} 
-                    label="Nutrition" 
-                    active={activeTab === 'nutrition'} 
-                    onClick={() => setActiveTab('nutrition')} 
-                />
-                 <NavButton 
-                    icon={<Wind size={20}/>} 
+                    icon={<Wind size={22}/>} 
                     label="Mindfulness" 
                     active={activeTab === 'mindfulness'} 
                     onClick={() => setActiveTab('mindfulness')} 
                 />
                  <NavButton 
-                    icon={<Bell size={20}/>} 
+                    icon={<Bell size={22}/>} 
                     label="Reminders" 
                     active={activeTab === 'reminders'} 
                     onClick={() => setActiveTab('reminders')} 
                 />
                  <NavButton 
-                    icon={<BarChart2 size={20}/>} 
-                    label="Health Reports" 
+                    icon={<BarChart2 size={22}/>} 
+                    label="Prescription Analysis" 
                     active={activeTab === 'reports'} 
                     onClick={() => setActiveTab('reports')} 
                 />
                  <NavButton 
-                    icon={<MessageSquare size={20}/>} 
+                    icon={<MessageSquare size={22}/>} 
                     label="AI Coach" 
                     active={activeTab === 'chat'} 
                     onClick={() => setActiveTab('chat')} 
                 />
                  <NavButton 
-                    icon={<HeartPulse size={20}/>} 
+                    icon={<HeartPulse size={22}/>} 
                     label="Daily Plan" 
                     active={activeTab === 'wellness'} 
                     onClick={() => setActiveTab('wellness')} 
                 />
                  <NavButton 
-                    icon={<HelpCircle size={20}/>} 
+                    icon={<HelpCircle size={22}/>} 
                     label="Ask Doubts" 
                     active={activeTab === 'doubts'} 
                     onClick={() => setActiveTab('doubts')} 
                 />
-                 <NavButton 
-                    icon={<ShoppingBag size={20}/>} 
-                    label="Store" 
-                    active={activeTab === 'store'} 
-                    onClick={() => setActiveTab('store')} 
-                />
-                 <NavButton 
-                    icon={<UserCircle size={20}/>} 
-                    label="Profile" 
-                    active={activeTab === 'profile'} 
-                    onClick={() => setActiveTab('profile')} 
-                />
+                 <div className="relative w-full">
+                    <NavButton 
+                        icon={<ShoppingBag size={22}/>} 
+                        label="Store" 
+                        active={activeTab === 'store'} 
+                        onClick={() => setActiveTab('store')} 
+                    />
+                    {cart.length > 0 && (
+                        <div className="absolute top-2 right-4 bg-brand text-slate-950 text-[10px] font-black h-4 w-4 rounded-full flex items-center justify-center animate-bounce shadow-lg shadow-brand/40 pointer-events-none">
+                            {cart.reduce((acc, i) => acc + (i.quantity || 1), 0)}
+                        </div>
+                    )}
+                </div>
             </nav>
-
-             <div className="mt-auto md:px-4 w-full py-6">
-                <button 
-                    onClick={() => setIsAuthenticated(false)} 
-                    className="flex items-center gap-3 w-full p-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-red-500 transition-colors border border-transparent hover:border-red-500/20 rounded-2xl"
-                >
-                    <span className="hidden md:inline">Log Out</span>
-                </button>
-            </div>
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 ml-20 md:ml-64 p-4 md:p-10 min-h-screen bg-slate-950 relative">
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-brand/5 rounded-full blur-[120px] pointer-events-none"></div>
+        <main className="flex-1 ml-20 md:ml-64 p-4 md:p-8 min-h-screen bg-[#0b0f1a] relative">
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none"></div>
             
-            <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+            {activeTab !== 'dashboard' && (
+                <header className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
                  <div>
-                    <h2 className="text-3xl font-black text-white uppercase tracking-tight">
+                    <h2 className="text-2xl font-black text-white uppercase tracking-tight">
                         {activeTab === 'profile' ? 'System Profile' : 
                         activeTab === 'fitness' ? 'Fitness Cycles' :
-                        activeTab === 'nutrition' ? 'Nutrition Matrix' :
                         activeTab === 'mindfulness' ? 'Neural Calm' :
                         activeTab === 'reminders' ? 'Operational Tasks' :
                         activeTab === 'reports' ? 'Core Insights' :
@@ -274,52 +279,51 @@ function App() {
                     <p className="text-slate-500 text-[10px] uppercase font-black tracking-[0.4em] mt-1">Authorized Access: {userContext.name || 'Anonymous'}</p>
                  </div>
 
-                 <div className="flex items-center gap-6">
-                    <div className="hidden md:flex flex-col items-end">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2">
-                            {userContext.location ? `COORD: ${userContext.location}` : 'GPS_OFFLINE'}
-                        </span>
-                        <div className="flex gap-1.5">
-                            {[1,2,3,4,5].map(i => <div key={i} className={`h-1 w-6 rounded-full ${i <= 4 ? 'bg-brand' : 'bg-slate-800'}`}></div>)}
-                        </div>
-                    </div>
-                    
-                    <div className="h-10 w-[1px] bg-slate-800 mx-2 hidden md:block"></div>
+                 <div className="flex items-center gap-3">
+                    <button 
+                        onClick={() => setActiveTab('profile')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border transition-all duration-300 ${
+                            activeTab === 'profile' 
+                                ? 'bg-brand border-brand text-slate-950 font-black shadow-lg shadow-brand/20' 
+                                : 'border-slate-800 bg-slate-900/50 text-slate-400 hover:border-brand/40 hover:text-white'
+                        }`}
+                    >
+                        <UserCircle size={18} />
+                        <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Profile</span>
+                    </button>
 
                     <button 
-                        onClick={() => {
-                            setIsSyncing(true);
-                            setTimeout(() => setIsSyncing(false), 2000);
-                        }}
-                        className={`p-3 rounded-2xl border border-slate-800 bg-slate-900/50 hover:border-brand/50 transition-all ${isSyncing ? 'animate-spin text-brand' : 'text-slate-400'}`}
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-800 bg-slate-900/50 text-slate-400 hover:border-red-500/40 hover:text-red-500 transition-all duration-300"
                     >
-                        <RefreshCw size={18} />
+                        <LogOut size={18} />
+                        <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Log Out</span>
                     </button>
                     
+                    <div className="h-8 w-[1px] bg-slate-800 mx-2 hidden md:block"></div>
+
                     <div className="flex flex-col items-center px-4 py-2 bg-brand/10 border border-brand/20 rounded-2xl">
-                        <span className="text-[8px] font-black text-brand uppercase tracking-widest mb-0.5">Core_Mood</span>
-                        <span className="text-xs font-black text-white uppercase tracking-tighter italic">
+                        <span className="text-[8px] font-black text-brand uppercase tracking-widest mb-0.5">Status</span>
+                        <span className="text-xs font-black text-white uppercase tracking-tighter italic flex items-center gap-1.5">
+                            <div className="w-1 h-1 rounded-full bg-brand animate-pulse"></div>
                             {userContext.mood}
                         </span>
                     </div>
                  </div>
             </header>
-
-            <div className="max-w-7xl mx-auto w-full relative z-10">
+            )}
                 {activeTab === 'dashboard' && (
                      <Dashboard 
                         userContext={userContext} 
                         setUserContext={setUserContext}
                         onGetRecommendation={getProactiveRecommendation}
+                        setActiveTab={setActiveTab}
+                        handleLogout={handleLogout}
                     />
                 )}
 
                 {activeTab === 'fitness' && (
                     <Fitness userContext={userContext} setUserContext={setUserContext} />
-                )}
-
-                {activeTab === 'nutrition' && (
-                    <Nutrition userContext={userContext} />
                 )}
 
                 {activeTab === 'mindfulness' && (
@@ -383,14 +387,14 @@ function App() {
                 )}
 
                 {activeTab === 'store' && (
-                    <Store />
+                    <Store cart={cart} setCart={setCart} />
                 )}
                 {activeTab === 'profile' && (
                     <Profile 
                         userContext={userContext} 
                         setUserContext={setUserContext} 
                     />
-                )}            </div>
+                )}
         </main>
     </div>
   );
@@ -399,14 +403,14 @@ function App() {
 const NavButton = ({ icon, label, active, onClick }) => (
     <button 
         onClick={onClick}
-        className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 group ${
+        className={`w-full flex items-center gap-5 p-5 rounded-2xl transition-all duration-300 group ${
             active 
                 ? 'bg-brand text-slate-950 shadow-lg shadow-brand/20 scale-105' 
-                : 'text-slate-500 hover:text-white pro overflow-hidden relative'
+                : 'text-slate-500 hover:text-white overflow-hidden relative'
         }`}
     >
         <span className="transition-transform group-hover:scale-110 duration-300 relative z-10">{icon}</span>
-        <span className="hidden md:inline text-xs font-black uppercase tracking-[0.2em] relative z-10">{label}</span>
+        <span className="hidden md:inline text-[11px] font-black uppercase tracking-[0.2em] relative z-10">{label}</span>
         {!active && <div className="absolute inset-0 bg-slate-800/30 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>}
     </button>
 );

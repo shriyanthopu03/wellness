@@ -3,6 +3,7 @@ from typing import List, Optional
 
 class UserContext(BaseModel):
     user_id: str
+    password: Optional[str] = None
     name: Optional[str] = None
     age: Optional[int] = None
     gender: Optional[str] = None  # male, female, other
@@ -27,6 +28,7 @@ class UserContext(BaseModel):
         "fitness_level": "Unknown",
         "sleep_quality": "unknown"
     }
+    location: Optional[str] = None
     last_interaction: Optional[str] = None
 
 class ChatMessage(BaseModel):
@@ -51,4 +53,9 @@ class DoubtRequest(BaseModel):
 class MealAnalysisRequest(BaseModel):
     user_id: str
     image_data: str # Base64 or URL
+    context: UserContext
+
+class PrescriptionAnalysisRequest(BaseModel):
+    user_id: str
+    image_data: str # Base64
     context: UserContext

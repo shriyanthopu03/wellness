@@ -1,65 +1,54 @@
-import React, { useState, useEffect } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { generateInitialData, getNextDataPoint, ChartDataPoint } from '../../services/realtimeData';
+import React from 'react';
+import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
+import { generateStaticData } from '../../services/realtimeData';
+import { Zap } from 'lucide-react';
 
-const CaloriesChart: React.FC = () => {
-  const [data, setData] = useState<ChartDataPoint[]>(generateInitialData(20, 1500, 2500));
+interface CaloriesChartProps {
+  target?: number;
+  burned?: number;
+}
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setData((prevData) => {
-        const lastValue = prevData[prevData.length - 1].value;
-        const nextPoint = getNextDataPoint(lastValue, 1000, 3000);
-        return [...prevData.slice(1), nextPoint];
-      });
-    }, 1500);
-    return () => clearInterval(interval);
-  }, []);
+const CaloriesChart: React.FC<CaloriesChartProps> = ({ target = 2000, burned = 0 }) => {
+  const data = generateStaticData(burned || 0, 12);
 
   return (
-    <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-xl h-full flex flex-col">
-      <div className="mb-6">
-        <h3 className="text-lg font-bold text-slate-100">Calories Burned</h3>
-        <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Intensity Trend • Daily Target</p>
+    <div className="bg-slate-900/60 backdrop-blur-md p-4 sm:p-5 rounded-[2rem] border border-slate-800/50 shadow-2xl flex items-center justify-between h-full transition-all hover:bg-slate-800/80 group overflow-hidden relative">
+      <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+        <div className="p-3 bg-slate-800/50 rounded-2xl border border-slate-700/50 group-hover:border-orange-500/30 transition-all flex-shrink-0">
+          <Zap className="text-orange-500 w-5 h-5 sm:w-6" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+            {burned > 0 ? 'Calories Burned' : 'Daily Target'}
+          </p>
+          <h4 className="text-xl sm:text-2xl font-black text-white tracking-tighter uppercase italic leading-none mb-2">
+            {Math.round(burned > 0 ? burned : target).toLocaleString()}<span className="text-sm ml-1 opacity-60 font-medium">kcal</span>
+          </h4>
+          <div className="flex items-center gap-2 mt-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider whitespace-nowrap">Synchronized</span>
+          </div>
+        </div>
       </div>
-
-      <div className="flex-grow min-h-[200px]">
+      <div className="w-16 h-12 sm:w-24 sm:h-16 opacity-30 group-hover:opacity-80 transition-all flex-shrink-0 ml-4">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>
             <defs>
-              <linearGradient id="colorCal" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#34d399" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#34d399" stopOpacity={0}/>
+              <linearGradient id="calLine" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#f97316" stopOpacity={0.8}/>
+                <stop offset="100%" stopColor="#f97316" stopOpacity={0}/>
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-            <XAxis dataKey="time" hide />
-            <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-            <Tooltip
-              contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-              itemStyle={{ color: '#34d399' }}
-            />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke="#34d399"
+            <Area 
+              type="stepAfter" 
+              dataKey="value" 
+              stroke="#f97316" 
               strokeWidth={3}
-              fillOpacity={1}
-              fill="url(#colorCal)"
-              animationDuration={500}
+              fill="url(#calLine)" 
+              animationDuration={2500}
             />
           </AreaChart>
         </ResponsiveContainer>
-      </div>
-
-      <div className="mt-4 flex items-end justify-between">
-        <div>
-          <span className="text-3xl font-black text-white">{data[data.length - 1].value}</span>
-          <span className="text-xs text-slate-500 ml-1 font-bold">kcal</span>
-        </div>
-        <div className="bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-          +12% vs yesterday
-        </div>
       </div>
     </div>
   );

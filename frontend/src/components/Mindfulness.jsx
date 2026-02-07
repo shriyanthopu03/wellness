@@ -1,44 +1,86 @@
 import React, { useState, useEffect } from 'react';
 import { Wind, Moon, Sun, Heart, Play, Pause, RefreshCw } from 'lucide-react';
 
-const Mindfulness = () => {
+const Mindfulness = ({ userContext }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [timeLeft, setTimeLeft] = useState(300); // 5 mins
     const [phase, setPhase] = useState('Inhale'); // Inhale, Hold, Exhale
     const [phaseProgress, setPhaseProgress] = useState(0);
+    
+    // Default times
+    const [inhaleTime, setInhaleTime] = useState(4);
+    const [holdTime, setHoldTime] = useState(4);
+    const [exhaleTime, setExhaleTime] = useState(4);
+
+    // Dynamic adjustment based on "Patient Condition" (userContext)
+    useEffect(() => {
+        if (!userContext) return;
+
+        const mood = userContext.mood?.toLowerCase();
+        const energy = userContext.energy_level || 5;
+
+        if (mood === 'stressed' || mood === 'tired') {
+            // Parasympathetic Activation (Relaxation) - 4-7-8 style
+            setInhaleTime(4);
+            setHoldTime(7);
+            setExhaleTime(8);
+        } else if (energy < 4) {
+            // Calm Energy - 5-5-5 style
+            setInhaleTime(5);
+            setHoldTime(5);
+            setExhaleTime(5);
+        } else if (mood === 'energetic' || energy > 7) {
+            // Standard Coherence - 4-4-4 style
+            setInhaleTime(4);
+            setHoldTime(4);
+            setExhaleTime(4);
+        }
+    }, [userContext?.mood, userContext?.energy_level]);
 
     useEffect(() => {
         let timer;
-        let phaseTimer;
-        
         if (isPlaying && timeLeft > 0) {
             timer = setInterval(() => {
                 setTimeLeft(prev => prev - 1);
             }, 1000);
+            return () => clearInterval(timer);
+        } else if (timeLeft === 0) {
+            setIsPlaying(false);
+        }
+    }, [isPlaying, timeLeft]);
 
-            phaseTimer = setInterval(() => {
+    useEffect(() => {
+        let phaseTimeout;
+        let progressInt;
+        
+        if (isPlaying) {
+            const duration = phase === 'Inhale' ? inhaleTime : 
+                            phase === 'Hold' ? holdTime : 
+                            exhaleTime;
+            
+            setPhaseProgress(0);
+
+            phaseTimeout = setTimeout(() => {
                 setPhase(prev => {
                     if (prev === 'Inhale') return 'Hold';
                     if (prev === 'Hold') return 'Exhale';
                     return 'Inhale';
                 });
-                setPhaseProgress(0); // Reset visual progress on phase change
-            }, 4000);
-            
-            // Sub-timer for smoother animation progress
-            const progressInt = setInterval(() => {
-                setPhaseProgress(prev => (prev + 1) % 100);
+            }, duration * 1000);
+
+            progressInt = setInterval(() => {
+                setPhaseProgress(prev => {
+                    const step = 100 / (duration * 25); // 25 steps per second (40ms)
+                    return Math.min(prev + step, 100);
+                });
             }, 40);
 
             return () => {
-                clearInterval(timer);
-                clearInterval(phaseTimer);
+                clearTimeout(phaseTimeout);
                 clearInterval(progressInt);
             };
-        } else if (timeLeft === 0) {
-            setIsPlaying(false);
         }
-    }, [isPlaying, timeLeft]);
+    }, [isPlaying, phase, inhaleTime, holdTime, exhaleTime]);
 
     const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
@@ -63,8 +105,14 @@ const Mindfulness = () => {
                     <h3 className="text-4xl font-black mb-4 text-white uppercase tracking-tighter min-h-[1.2em]">
                         {isPlaying ? phase : 'Neural Calm'}
                     </h3>
+                    <div className="flex items-center gap-2 mb-6 px-4 py-1.5 bg-brand/5 border border-brand/20 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
+                        <span className="text-[10px] font-black text-brand uppercase tracking-widest leading-none">
+                            Condition Optimized: {userContext?.mood?.toUpperCase() || 'STABLE'}
+                        </span>
+                    </div>
                     <p className="text-slate-500 mb-10 max-w-sm text-sm font-medium">
-                        {isPlaying ? `Synchronizing: ${phase === 'Inhale' ? 'Expansion' : phase === 'Hold' ? 'Stasis' : 'Release'}` : 'Optimize your nervous system. Deep diaphragmatic patterns.'}
+                        {isPlaying ? `Synchronizing: ${phase === 'Inhale' ? 'Expansion' : phase === 'Hold' ? 'Stasis' : 'Release'}` : 'System detected current physiological state. Pattern adjusted for optimal recovery.'}
                     </p>
                     
                     <div className="relative w-64 h-64 flex items-center justify-center mb-10">
@@ -92,13 +140,41 @@ const Mindfulness = () => {
                         
                         <div className={`absolute inset-0 bg-brand/5 rounded-full ${isPlaying ? 'animate-ping' : ''}`}></div>
                         <div 
-                            className={`w-48 h-48 bg-slate-800 rounded-full border-2 border-slate-700 flex items-center justify-center shadow-inner transition-transform duration-[4000ms] ease-in-out ${
+                            className={`w-48 h-48 bg-slate-800 rounded-full border-2 border-slate-700 flex items-center justify-center shadow-inner transition-transform ease-in-out ${
                                 isPlaying && phase === 'Inhale' ? 'scale-125 border-brand/50' : 
                                 isPlaying && phase === 'Exhale' ? 'scale-90 border-slate-600' : 
                                 'scale-110 border-slate-700'
                             }`}
+                            style={{ transitionDuration: `${phase === 'Inhale' ? inhaleTime : phase === 'Hold' ? holdTime : exhaleTime}s` }}
                         >
                             <span className="text-3xl font-black text-white tracking-widest font-mono">{isPlaying ? formatTime(timeLeft) : 'READY'}</span>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap justify-center gap-8 mb-10 w-full max-w-md">
+                        <div className="flex-1 min-w-[100px]">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Inhale ({inhaleTime}s)</label>
+                            <input 
+                                type="range" min="2" max="10" value={inhaleTime} 
+                                onChange={(e) => setInhaleTime(parseInt(e.target.value))}
+                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand"
+                            />
+                        </div>
+                        <div className="flex-1 min-w-[100px]">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Hold ({holdTime}s)</label>
+                            <input 
+                                type="range" min="0" max="10" value={holdTime} 
+                                onChange={(e) => setHoldTime(parseInt(e.target.value))}
+                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                        </div>
+                        <div className="flex-1 min-w-[100px]">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Exhale ({exhaleTime}s)</label>
+                            <input 
+                                type="range" min="2" max="10" value={exhaleTime} 
+                                onChange={(e) => setExhaleTime(parseInt(e.target.value))}
+                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                            />
                         </div>
                     </div>
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, Battery, Smile, User, Heart, Brain, Zap, Target, TrendingUp, Plus, Trash2, CheckCircle, Circle, Calculator, BarChart3 } from 'lucide-react';
+import { Activity, Battery, Smile, User, Heart, Brain, Zap, Target, TrendingUp, Plus, Trash2, CheckCircle, Circle, Calculator, BarChart3, LogOut, UserCircle } from 'lucide-react';
 
 // Real-time Chart Imports
 import StepsChart from './charts/StepsChart';
@@ -7,10 +7,14 @@ import CaloriesChart from './charts/CaloriesChart';
 import SleepChart from './charts/SleepChart';
 import ActivityChart from './charts/ActivityChart';
 
-const Dashboard = ({ userContext, setUserContext, onGetRecommendation }) => {
+const Dashboard = ({ userContext, setUserContext, onGetRecommendation, setActiveTab, handleLogout }) => {
     const [newGoal, setNewGoal] = useState('');
     const [newTodo, setNewTodo] = useState('');
     const [manualSteps, setManualSteps] = useState('');
+    const [manualSleep, setManualSleep] = useState(userContext.lifestyle_inputs?.sleep_hours || '');
+    const [localFitness, setLocalFitness] = useState(userContext.vitals?.fitness_level || '');
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [showToast, setShowToast] = useState(false);
 
     const handleUpdate = (field, value) => {
         setUserContext(prev => ({ ...prev, [field]: value }));
@@ -24,6 +28,38 @@ const Dashboard = ({ userContext, setUserContext, onGetRecommendation }) => {
                 [field]: value
             }
         }));
+    };
+
+    const updateManualSteps = () => {
+        setIsUpdating(true);
+        const stepsToAdd = parseInt(manualSteps) || 0;
+        const sleepToSet = parseInt(manualSleep) || userContext.lifestyle_inputs?.sleep_hours || 0;
+        const fitnessToSet = localFitness || userContext.vitals?.fitness_level || 'Active';
+
+        setTimeout(() => {
+            setUserContext(prev => {
+                const newSteps = (prev.steps || 0) + stepsToAdd;
+                const newCalories = parseFloat((newSteps * 0.04).toFixed(1));
+                return {
+                    ...prev,
+                    steps: newSteps,
+                    calories_burned: newCalories,
+                    lifestyle_inputs: {
+                        ...(prev.lifestyle_inputs || {}),
+                        sleep_hours: sleepToSet
+                    },
+                    vitals: {
+                        ...(prev.vitals || {}),
+                        daily_calories: Math.round(newCalories),
+                        fitness_level: fitnessToSet
+                    }
+                };
+            });
+            setManualSteps('');
+            setIsUpdating(false);
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 2000);
+        }, 800);
     };
 
     const addGoal = () => {
@@ -67,316 +103,245 @@ const Dashboard = ({ userContext, setUserContext, onGetRecommendation }) => {
         }));
     };
 
-    const updateManualSteps = () => {
-        const stepsToAdd = parseInt(manualSteps);
-        if (!isNaN(stepsToAdd)) {
-            setUserContext(prev => {
-                const newSteps = (prev.steps || 0) + stepsToAdd;
-                return {
-                    ...prev,
-                    steps: newSteps,
-                    calories_burned: newSteps * 0.04 // Recalculate based on total
-                };
-            });
-            setManualSteps('');
-        }
-    };
-
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Status Update Card */}
-                <div className="bg-slate-900 p-10 rounded-[2rem] shadow-xl border border-slate-800 lg:col-span-1">
-                    <h2 className="text-2xl font-black mb-8 text-slate-100 flex items-center gap-3">
-                        <Zap className="text-brand" size={24} />
-                        Quick Update
-                    </h2>
-
-                    <div className="space-y-6">
-                        {/* Mood Selector */}
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                <Smile size={14} /> Mood
-                            </label>
-                            <div className="flex flex-wrap gap-2">
-                                {['neutral', 'happy', 'stressed', 'energetic', 'tired'].map(m => (
-                                    <button 
-                                        key={m}
-                                        onClick={() => handleUpdate('mood', m)}
-                                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${userContext.mood === m ? 'bg-brand text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
-                                    >
-                                        {m.toUpperCase()}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Energy Level Slider */}
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                <Battery size={14} /> Energy ({userContext.energy_level}/10)
-                            </label>
-                            <input 
-                                type="range" min="1" max="10" value={userContext.energy_level} 
-                                onChange={(e) => handleUpdate('energy_level', parseInt(e.target.value))}
-                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand"
-                            />
-                        </div>
-
-                        {/* Activity Selector */}
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                <Activity size={14} /> Activity
-                            </label>
-                            <select 
-                                value={userContext.activity_type} 
-                                onChange={(e) => handleUpdate('activity_type', e.target.value)}
-                                className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm focus:outline-none text-slate-200"
-                            >
-                                <option value="sedentary">Sedentary</option>
-                                <option value="walking">Walking</option>
-                                <option value="workout">Working Out</option>
-                            </select>
-                        </div>
-
-                        {/* Sleep Hours Input */}
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                <Brain size={14} /> Sleep (Hours)
-                            </label>
-                            <input 
-                                type="number" 
-                                min="0" 
-                                max="24" 
-                                value={userContext.lifestyle_inputs?.sleep_hours || 0} 
-                                onChange={(e) => handleNestedUpdate('lifestyle_inputs', 'sleep_hours', parseFloat(e.target.value))}
-                                className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand text-slate-200"
-                            />
-                        </div>
-
-                        {/* Fitness Level Selector */}
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                <Activity size={14} /> Fitness Level
-                            </label>
-                            <select 
-                                value={userContext.vitals?.fitness_level || 'Unknown'} 
-                                onChange={(e) => handleNestedUpdate('vitals', 'fitness_level', e.target.value)}
-                                className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand text-slate-200"
-                            >
-                                <option value="Unknown">Unknown</option>
-                                <option value="Beginner">Beginner</option>
-                                <option value="Intermediate">Intermediate</option>
-                                <option value="Advanced">Advanced</option>
-                                <option value="Athlete">Athlete</option>
-                            </select>
-                        </div>
-
-                        <button 
-                            onClick={onGetRecommendation}
-                            className="w-full bg-brand hover:bg-brand-dark text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg shadow-brand/20"
-                        >
-                            Generate AI Insight
-                        </button>
-                    </div>
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 max-w-[1400px] mx-auto p-4 md:p-6">
+            {/* Minimalist Top Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div>
+                    <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-2">
+                        System <span className="text-brand">Ready</span>
+                    </h1>
+                    <p className="text-slate-400 text-sm font-medium tracking-wide uppercase">Operational Overview • {new Date().toLocaleDateString()}</p>
                 </div>
 
-                {/* Vitals & Health Insights */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <InsightCard 
-                            icon={<TrendingUp className="text-brand"/>} 
-                            label="Steps Today" 
-                            value={userContext.steps?.toLocaleString() || "0"} 
-                            trend={`${(userContext.calories_burned || 0).toFixed(0)} kcal burned`} 
-                        />
-                        <InsightCard 
-                            icon={<Zap className="text-orange-500"/>} 
-                            label="Daily Target" 
-                            value={`${userContext.vitals.daily_calories || 0} kcal`} 
-                            trend="Based on your profile" 
-                        />
-                         <InsightCard 
-                            icon={<Target className="text-blue-500"/>} 
-                            label="Fitness Level" 
-                            value={userContext.vitals.fitness_level || 'Unknown'} 
-                            trend="Calculated from activity" 
-                        />
-                        <InsightCard 
-                            icon={<Brain className="text-purple-500"/>} 
-                            label="Sleep Quality" 
-                            value={userContext.vitals.sleep_quality || 'Unknown'} 
-                            trend="Deep sleep: 2.5h" 
-                        />
-                    </div>
+                <div className="flex items-center gap-3">
+                    <button 
+                        onClick={() => setActiveTab('profile')}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-800 bg-slate-900/50 text-slate-400 hover:border-brand/40 hover:text-white transition-all duration-300"
+                    >
+                        <UserCircle size={18} />
+                        <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Profile</span>
+                    </button>
+
+                    <button 
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-800 bg-slate-900/50 text-slate-400 hover:border-red-500/40 hover:text-red-500 transition-all duration-300"
+                    >
+                        <LogOut size={18} />
+                        <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Log Out</span>
+                    </button>
                     
-                    {/* Calories Calculator Mini-Widget */}
-                    <div className="bg-slate-900 p-6 rounded-3xl shadow-xl border border-slate-800 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-3 bg-brand/20 rounded-xl">
-                                <Calculator size={20} className="text-brand" />
-                            </div>
-                            <div>
-                                <h4 className="text-sm font-bold text-slate-100">Manual Step Sync</h4>
-                                <p className="text-xs text-slate-500">Update steps to recalculate calories</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-2">
-                            <input 
-                                type="number"
-                                placeholder="Steps..."
-                                value={manualSteps}
-                                onChange={(e) => setManualSteps(e.target.value)}
-                                className="w-24 px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-brand text-slate-200"
-                            />
-                            <button 
-                                onClick={updateManualSteps}
-                                className="bg-brand text-white text-xs font-bold px-4 py-2 rounded-xl"
-                            >
-                                Sync
-                            </button>
-                        </div>
-                    </div>
+                    <div className="h-8 w-[1px] bg-slate-800 mx-2 hidden md:block"></div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Dynamic Goals */}
-                        <div className="bg-slate-900 p-8 rounded-3xl shadow-xl border border-slate-800">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                                    <Target className="text-brand" size={20} />
-                                    Active Goals
-                                </h3>
-                                <div className="flex gap-2">
-                                    <input 
-                                        type="text"
-                                        placeholder="Add goal..."
-                                        value={newGoal}
-                                        onChange={(e) => setNewGoal(e.target.value)}
-                                        onKeyPress={(e) => e.key === 'Enter' && addGoal()}
-                                        className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs focus:outline-none text-slate-200 placeholder:text-slate-600"
-                                    />
-                                    <button onClick={addGoal} className="bg-brand/20 text-brand p-1.5 rounded-lg hover:bg-brand hover:text-white transition-colors">
-                                        <Plus size={16} />
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div className="space-y-4">
-                                {userContext.health_goals?.map(goal => (
-                                    <div key={goal} className="group flex items-center justify-between p-4 bg-slate-800/50 rounded-2xl border border-transparent hover:border-brand/20 transition-all">
-                                        <div className="space-y-2 flex-1 mr-4">
-                                            <div className="flex justify-between items-center text-xs">
-                                                <span className="font-bold text-slate-300 capitalize">{goal}</span>
-                                                <span className="text-brand font-black">65%</span>
-                                            </div>
-                                            <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                                <div className="h-full bg-brand rounded-full" style={{ width: '65%' }}></div>
-                                            </div>
-                                        </div>
-                                        <button 
-                                            onClick={() => removeGoal(goal)}
-                                            className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-500 transition-all"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                ))}
-                                {(!userContext.health_goals || userContext.health_goals.length === 0) && (
-                                    <div className="text-center py-8">
-                                        <p className="text-sm text-gray-400 italic">No goals set yet.</p>
-                                    </div>
-                                )}
-                            </div>
+                    <div className="flex items-center gap-3 bg-slate-900/50 border border-slate-800 p-1.5 pr-6 rounded-2xl">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand to-orange-400 flex items-center justify-center text-white shadow-lg">
+                            <User size={16} />
                         </div>
-
-                        {/* Todo List */}
-                        <div className="bg-slate-900 p-8 rounded-3xl shadow-xl border border-slate-800">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                                    <CheckCircle className="text-green-500" size={20} />
-                                    Daily Todo
-                                </h3>
-                                <div className="flex gap-2">
-                                    <input 
-                                        type="text"
-                                        placeholder="Add task..."
-                                        value={newTodo}
-                                        onChange={(e) => setNewTodo(e.target.value)}
-                                        onKeyPress={(e) => e.key === 'Enter' && addTodo()}
-                                        className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs focus:outline-none text-slate-200 placeholder:text-slate-600"
-                                    />
-                                    <button onClick={addTodo} className="bg-green-500/20 text-green-400 p-1.5 rounded-lg hover:bg-green-500 hover:text-white transition-colors">
-                                        <Plus size={16} />
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                {userContext.todos?.map(todo => (
-                                    <div key={todo.id} className="flex items-center justify-between group p-3 hover:bg-slate-800/50 rounded-xl transition-all">
-                                        <div className="flex items-center gap-3">
-                                            <button onClick={() => toggleTodo(todo.id)}>
-                                                {todo.completed ? 
-                                                    <CheckCircle size={18} className="text-green-500" /> : 
-                                                    <Circle size={18} className="text-slate-700" />
-                                                }
-                                            </button>
-                                            <span className={`text-sm ${todo.completed ? 'text-slate-600 line-through' : 'text-slate-300 font-medium'}`}>
-                                                {todo.text}
-                                            </span>
-                                        </div>
-                                        <button 
-                                            onClick={() => removeTodo(todo.id)}
-                                            className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-500 transition-all"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                ))}
-                                {(!userContext.todos || userContext.todos.length === 0) && (
-                                    <div className="text-center py-8 text-slate-500">
-                                        <p className="text-sm italic">Nothing on the list. Enjoy your day!</p>
-                                    </div>
-                                )}
-                            </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase leading-none mb-1">Status</p>
+                            <p className="text-xs font-bold text-white leading-none uppercase">{userContext.mood || 'Optimal'}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Live Analytics Dashboard Section */}
-            <div className="pt-4 border-t border-slate-800">
-                <div className="flex items-center gap-3 mb-8">
-                    <div className="p-3 bg-cyan-500/10 rounded-2xl">
-                        <BarChart3 className="text-cyan-400" size={24} />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
+                {/* Left Panel: Vitals & Energy */}
+                <div className="lg:col-span-4 space-y-4 md:space-y-6">
+                    <div className="bg-[#111827] border border-slate-800/60 rounded-[2rem] p-6 shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                            <Zap size={80} className="text-brand" />
+                        </div>
+                        
+                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                            <Battery className="text-brand" size={12} /> Energy Level
+                        </h3>
+                        
+                        <div className="flex items-end gap-3 mb-4">
+                            <span className="text-6xl font-extrabold text-white tracking-tighter leading-none">
+                                {userContext.energy_level * 10}
+                            </span>
+                            <span className="text-lg font-bold text-brand pb-1">%</span>
+                        </div>
+
+                        <div className="w-full h-2.5 bg-slate-800/50 rounded-full overflow-hidden mb-6">
+                            <div 
+                                className="h-full bg-gradient-to-r from-brand to-orange-400 rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(255,107,0,0.3)]"
+                                style={{ width: `${userContext.energy_level * 10}%` }}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-slate-800/30 border border-slate-700/30 p-3 rounded-xl">
+                                <p className="text-[9px] font-bold text-slate-500 uppercase mb-0.5">Output</p>
+                                <p className="text-base font-bold text-white uppercase">{userContext.activity_type}</p>
+                            </div>
+                            <div className="bg-slate-800/30 border border-slate-700/30 p-3 rounded-xl">
+                                <p className="text-[9px] font-bold text-slate-500 uppercase mb-0.5">Metabolism</p>
+                                <p className="text-base font-bold text-white uppercase">Active</p>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-2xl font-black text-slate-100">Live Biometric Analytics</h2>
-                        <p className="text-sm text-slate-500 font-bold uppercase tracking-wider">Real-time performance metrics</p>
+
+                    {/* Quick Controls Card */}
+                    <div className="bg-[#0f172a] border border-slate-800/60 rounded-[2rem] p-6 shadow-2xl relative overflow-hidden">
+                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-6">Update Snapshot</h3>
+                        
+                        <div className="space-y-6">
+                            <div>
+                                <label className="text-[9px] font-black text-slate-600 uppercase mb-2 block tracking-widest">Mood State</label>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {['happy', 'stressed', 'tired', 'energetic'].map(m => (
+                                        <button 
+                                            key={m}
+                                            onClick={() => handleUpdate('mood', m)}
+                                            className={`px-4 py-2 rounded-xl text-[9px] font-black transition-all uppercase tracking-widest ${userContext.mood === m ? 'bg-brand text-white shadow-[0_0_20px_rgba(255,107,0,0.3)]' : 'bg-slate-900 text-slate-500 hover:bg-slate-800 border border-slate-800/50'}`}
+                                        >
+                                            {m}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-[9px] font-black text-slate-600 uppercase mb-2 block tracking-widest">Energy Scale</label>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex-1">
+                                        <input 
+                                            type="range" min="1" max="10" value={userContext.energy_level} 
+                                            onChange={(e) => handleUpdate('energy_level', parseInt(e.target.value))}
+                                            className="w-full h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-[#2dd4bf]"
+                                        />
+                                    </div>
+                                    <span className="text-2xl font-black text-white tabular-nums">{userContext.energy_level}</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-[9px] font-black text-slate-600 uppercase mb-2 block tracking-widest">System Snapshots</label>
+                                <div className="space-y-3">
+                                    <div className="flex gap-2">
+                                        <div className="grid grid-cols-1 gap-2 flex-1">
+                                            <input 
+                                                type="number" 
+                                                value={manualSteps} 
+                                                onChange={(e) => setManualSteps(e.target.value)}
+                                                placeholder="Steps.."
+                                                className="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#2dd4bf]/50 placeholder:text-slate-700 font-bold"
+                                            />
+                                            <input 
+                                                type="number" 
+                                                placeholder="Sleep (H)..."
+                                                value={manualSleep}
+                                                className="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#2dd4bf]/50 placeholder:text-slate-700 font-bold"
+                                                onChange={(e) => setManualSleep(e.target.value)}
+                                            />
+                                        </div>
+                                        <button 
+                                            onClick={updateManualSteps}
+                                            disabled={isUpdating}
+                                            className={`bg-[#2dd4bf] text-[#0f172a] px-4 rounded-xl hover:scale-[1.02] transition-all text-[10px] font-black uppercase tracking-widest shadow-[0_0_25px_rgba(45,212,191,0.3)] min-w-[80px] flex items-center justify-center ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                            {isUpdating ? <div className="w-3.5 h-3.5 border-2 border-[#0f172a]/20 border-t-[#0f172a] rounded-full animate-spin"></div> : (showToast ? 'DONE' : 'UPDATE')}
+                                        </button>
+                                    </div>
+
+                                    <div className="relative group">
+                                        <select 
+                                            className="w-full bg-[#0f172a] border border-slate-800 rounded-xl px-4 py-4 text-xs text-white focus:outline-none focus:border-[#2dd4bf]/50 appearance-none font-black uppercase tracking-widest cursor-pointer hover:bg-slate-900/50 transition-colors"
+                                            value={localFitness}
+                                            onChange={(e) => setLocalFitness(e.target.value)}
+                                        >
+                                            <option value="" disabled>Select Fitness Zone</option>
+                                            <option value="Sedentary">Sedentary</option>
+                                            <option value="Active">Active</option>
+                                            <option value="Efficient">Efficient</option>
+                                            <option value="Elite">Elite</option>
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-700 group-hover:text-teal-400 transition-colors">
+                                            <TrendingUp size={14} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={onGetRecommendation}
+                                className="w-full bg-gradient-to-r from-[#50e37e] to-[#f4b82d] hover:opacity-90 text-[#0f172a] font-black py-4 rounded-2xl transition-all shadow-[0_10px_30px_rgba(80,227,126,0.2)] uppercase tracking-[0.2em] text-[10px]"
+                            >
+                                Re-Analyze System
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StepsChart />
-                    <CaloriesChart />
-                    <SleepChart />
-                    <ActivityChart />
+                {/* Right Panel: The Charts Grid */}
+                <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 auto-rows-fr">
+                    <div className="min-h-[160px]">
+                        <StepsChart steps={userContext.steps} burned={userContext.calories_burned} />
+                    </div>
+                    <div className="min-h-[160px]">
+                        <CaloriesChart burned={userContext.calories_burned} />
+                    </div>
+                    <div className="min-h-[160px]">
+                        <SleepChart hours={userContext.lifestyle_inputs?.sleep_hours || 0} />
+                    </div>
+                    <div className="min-h-[160px]">
+                        <ActivityChart level={userContext.vitals?.fitness_level || 'Active'} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Bottom Row: Goals & Sync */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2 pt-6 border-t border-slate-800/50">
+                <div>
+                     <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                        <Target size={12} className="text-brand" /> System Goals
+                    </h3>
+                    <div className="flex gap-2 mb-3">
+                        <input 
+                            type="text" value={newGoal} onChange={(e) => setNewGoal(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && addGoal()}
+                            className="flex-1 bg-slate-900/50 border border-slate-800 rounded-lg px-4 py-2 text-xs font-medium text-white focus:outline-none focus:ring-1 focus:ring-brand/50"
+                            placeholder="Add objective..."
+                        />
+                        <button onClick={addGoal} className="bg-brand/10 text-brand p-2 rounded-lg hover:bg-brand hover:text-white transition-all">
+                            <Plus size={18} />
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                        {userContext.health_goals?.slice(0, 3).map((goal, i) => (
+                            <div key={i} className="flex items-center justify-between p-3 bg-slate-900/30 border border-slate-800/50 rounded-xl group transition-all hover:bg-slate-800/40">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-1 h-1 rounded-full bg-brand shadow-[0_0_8px_rgba(255,107,0,0.5)]"></div>
+                                    <span className="text-xs font-medium text-slate-200">{goal}</span>
+                                </div>
+                                <button onClick={() => removeGoal(goal)} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                                    <Trash2 size={12} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="bg-[#111827] rounded-[2rem] p-6 border border-slate-800/60 flex items-center justify-between overflow-hidden relative">
+                    <div className="absolute -bottom-4 -right-4 opacity-5">
+                        <Brain size={100} className="text-cyan-500" />
+                    </div>
+                    <div>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Neural Status</p>
+                        <h4 className="text-xl font-bold text-white mb-3">Coherent State</h4>
+                        <div className="flex items-center gap-2 text-cyan-400">
+                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Sync Active</span>
+                        </div>
+                    </div>
+                    <BarChart3 className="text-slate-800 w-20 h-20 stroke-[1px]" />
                 </div>
             </div>
         </div>
     );
 };
 
-const InsightCard = ({ icon, label, value, trend }) => (
-    <div className="bg-slate-900 p-6 rounded-3xl shadow-xl border border-slate-800 flex items-center gap-4 transition-all hover:scale-[1.02]">
-        <div className="p-4 bg-slate-800 rounded-2xl">{icon}</div>
-        <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{label}</p>
-            <h4 className="text-2xl font-black text-white">{value}</h4>
-            <p className="text-[10px] font-bold text-brand mt-1">{trend}</p>
-        </div>
-    </div>
-);
-
-
 export default Dashboard;
+

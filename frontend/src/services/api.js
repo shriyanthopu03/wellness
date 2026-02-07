@@ -4,10 +4,21 @@ const API_BASE_URL = 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.code === 'ECONNABORTED') {
+      console.error('System Timeout: Neural interface latency exceeding limits.');
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Chat API
 export const chatAPI = {
@@ -93,9 +104,9 @@ export const userAPI = {
       throw error;
     }
   },
-  login: async (email) => {
+  login: async (email, password) => {
     try {
-      const response = await api.post('/login', { email });
+      const response = await api.post('/login', { email, password });
       return response.data;
     } catch (error) {
       console.error('Login error:', error);

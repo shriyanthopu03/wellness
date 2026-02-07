@@ -11,32 +11,73 @@ const Login = ({ onLogin }) => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // Live validation requirements
+    const requirements = {
+        length: password.length >= 8,
+        uppercase: /[A-Z]/.test(password),
+        lowercase: /[a-z]/.test(password),
+        number: /[0-9]/.test(password),
+        special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    };
+
+    const validateInput = () => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setError("Invalid protocol: Email format required.");
+            return false;
+        }
+
+        if (!isLogin) {
+            if (!requirements.length || !requirements.uppercase || !requirements.lowercase || !requirements.number || !requirements.special) {
+                setError("Security Breach: Password complexity requirements not met.");
+                return false;
+            }
+            if (!fullName.trim()) {
+                setError("Identity Missing: Full name required.");
+                return false;
+            }
+            if (!/^[a-zA-Z\s]+$/.test(fullName)) {
+                setError("Format Error: Full name contains invalid characters.");
+                return false;
+            }
+        } else if (!password) {
+            setError("Credentials Required: Password missing.");
+            return false;
+        }
+        return true;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        
+        if (!validateInput()) return;
+        
         setLoading(true);
 
-        const userId = email.replace(/[@.]/g, '_');
+        const normalizedEmail = email.toLowerCase().trim();
+        const userId = normalizedEmail.replace(/[@.]/g, '_');
 
         try {
             if (isLogin) {
                 // Login validation: must exist in database
-                const userData = await userAPI.login(email);
+                const userData = await userAPI.login(normalizedEmail, password);
                 onLogin(userData);
             } else {
                 // Sign up: create new user
                 const newUserContext = {
                     user_id: userId,
-                    name: fullName || email.split('@')[0],
-                    age: 25,
-                    gender: "other",
-                    height: 170,
-                    weight: 70,
+                    password: password,
+                    name: fullName || normalizedEmail.split('@')[0],
+                    age: null,
+                    gender: null,
+                    height: null,
+                    weight: null,
                     mood: "neutral",
                     energy_level: 5,
                     activity_type: "sedentary",
                     lifestyle_inputs: {
-                        sleep_hours: 8,
+                        sleep_hours: 0,
                         diet_type: "None",
                         activity_level: "sedentary"
                     },
@@ -45,11 +86,11 @@ const Login = ({ onLogin }) => {
                     calories_burned: 0,
                     todos: [],
                     vitals: {
-                        heart_rate: 72,
-                        bmi: 24.2,
-                        daily_calories: 2000,
+                        heart_rate: 0,
+                        bmi: 0,
+                        daily_calories: 0,
                         fitness_level: "Unknown",
-                        sleep_quality: "Good"
+                        sleep_quality: "unknown"
                     }
                 };
                 const result = await userAPI.signup(newUserContext);
@@ -110,7 +151,7 @@ const Login = ({ onLogin }) => {
                     </motion.div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} noValidate className="space-y-4">
                     {!isLogin && (
                         <motion.div 
                             initial={{ opacity: 0, y: -10 }}
@@ -122,9 +163,11 @@ const Login = ({ onLogin }) => {
                                 type="text" 
                                 placeholder="FULL NAME"
                                 value={fullName}
-                                onChange={(e) => setFullName(e.target.value)}
+                                onChange={(e) => {
+                                    setFullName(e.target.value);
+                                    if (error) setError('');
+                                }}
                                 className="w-full bg-slate-800/50 border border-slate-700/50 rounded-2xl py-5 pl-14 pr-6 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-brand transition-all font-bold text-sm"
-                                required={!isLogin}
                             />
                         </motion.div>
                     )}
@@ -134,10 +177,12 @@ const Login = ({ onLogin }) => {
                         <input 
                             type="email" 
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            onChange={(e) => {
+                                setEmail(e.target.value);
+                                if (error) setError('');
+                            }}
                             placeholder="EMAIL ID"
                             className="w-full bg-slate-800/50 border border-slate-700/50 rounded-2xl py-5 pl-14 pr-6 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-brand transition-all font-bold text-sm"
-                            required
                         />
                     </div>
 
@@ -146,14 +191,26 @@ const Login = ({ onLogin }) => {
                         <input 
                             type="password" 
                             value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            onChange={(e) => {
+                                setPassword(e.target.value);
+                                if (error) setError('');
+                            }}
                             placeholder="PASSWORD"
                             className="w-full bg-slate-800/50 border border-slate-700/50 rounded-2xl py-5 pl-14 pr-6 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-brand transition-all font-bold text-sm"
-                            required
                         />
                     </div>
 
-                    <div className="pt-4">
+                    {!isLogin && password && (
+                        <div className="grid grid-cols-2 gap-2 px-2 pt-2">
+                            <ValidationLink met={requirements.length} text="8+ CHARS" />
+                            <ValidationLink met={requirements.uppercase} text="UPPERCASE" />
+                            <ValidationLink met={requirements.lowercase} text="LOWERCASE" />
+                            <ValidationLink met={requirements.number} text="NUMBER" />
+                            <ValidationLink met={requirements.special} text="SPECIAL" />
+                        </div>
+                    )}
+
+                    <div className="pt-4 space-y-4">
                         <button 
                             type="submit"
                             disabled={loading}
@@ -167,7 +224,11 @@ const Login = ({ onLogin }) => {
 
                 <div className="mt-10 text-center">
                     <button 
-                        onClick={() => setIsLogin(!isLogin)}
+                        onClick={() => {
+                            setIsLogin(!isLogin);
+                            setError('');
+                            setPassword('');
+                        }}
                         className="text-slate-500 hover:text-brand transition-all text-[10px] font-black uppercase tracking-widest border-b border-transparent hover:border-brand pb-1"
                     >
                         {isLogin ? "If new user? Signup" : "Return to Interface"}
@@ -179,5 +240,14 @@ const Login = ({ onLogin }) => {
         </div>
     );
 };
+
+const ValidationLink = ({ met, text }) => (
+    <div className="flex items-center gap-2">
+        <div className={`w-1 h-1 rounded-full ${met ? 'bg-brand shadow-[0_0_5px_rgba(45,212,191,1)]' : 'bg-slate-700'}`} />
+        <span className={`text-[8px] font-black uppercase tracking-tighter ${met ? 'text-brand' : 'text-slate-600'}`}>
+            {text}
+        </span>
+    </div>
+);
 
 export default Login;

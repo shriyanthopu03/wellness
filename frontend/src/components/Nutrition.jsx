@@ -4,6 +4,28 @@ import { Utensils, Apple, Coffee, PieChart, Plus, ChevronRight } from 'lucide-re
 const Nutrition = ({ userContext }) => {
     const [userConcern, setUserConcern] = React.useState("");
 
+    // Dynamic Macro Calculation based on weight and activity
+    const weight = userContext.weight || 70;
+    const goal = userContext.health_goals?.[0]?.toLowerCase() || 'maintenance';
+    const activity = userContext.lifestyle_inputs?.activity_level || 'moderate';
+
+    const getDailyNeeds = () => {
+        const calories = userContext.vitals?.daily_calories || 2000;
+        
+        // Protein: 0.8g to 2.2g based on goal
+        let proteinPerKg = 1.0;
+        if (goal.includes('muscle')) proteinPerKg = 1.8;
+        if (goal.includes('weight')) proteinPerKg = 1.4;
+        
+        const protein = Math.round(weight * proteinPerKg);
+        const fat = Math.round((calories * 0.25) / 9); // 25% from fat
+        const carbs = Math.round((calories - (protein * 4) - (fat * 9)) / 4);
+
+        return { calories, protein, carbs, fat };
+    };
+
+    const needs = getDailyNeeds();
+
     const getRecommendations = () => {
         // Use user input concern if provided, otherwise fallback to profile goals
         const primaryConcern = userConcern.toLowerCase() || userContext.health_goals?.[0]?.toLowerCase() || 'wellness';
@@ -81,8 +103,8 @@ const Nutrition = ({ userContext }) => {
     ];
 
     const caloriesConsumed = meals.reduce((sum, meal) => sum + meal.calories, 0);
-    const caloriesLeft = Math.max(0, (userContext.vitals.daily_calories || 2000) - caloriesConsumed);
-    const progress = Math.min(100, (caloriesConsumed / (userContext.vitals.daily_calories || 2000)) * 100);
+    const caloriesLeft = Math.max(0, needs.calories - caloriesConsumed);
+    const progress = Math.min(100, (caloriesConsumed / needs.calories) * 100);
 
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700 max-w-6xl mx-auto pb-20">
@@ -103,9 +125,9 @@ const Nutrition = ({ userContext }) => {
                 </div>
                 
                 <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
-                    <MacroStat label="Peptides" value="84g" target="120g" color="blue" />
-                    <MacroStat label="Glycogen" value="145g" target="200g" color="orange" />
-                    <MacroStat label="Lipids" value="42g" target="65g" color="brand" />
+                    <MacroStat label="Peptides" value="56g" target={`${needs.protein}g`} color="blue" />
+                    <MacroStat label="Glycogen" value="120g" target={`${needs.carbs}g`} color="orange" />
+                    <MacroStat label="Lipids" value="32g" target={`${needs.fat}g`} color="brand" />
                 </div>
             </div>
 
