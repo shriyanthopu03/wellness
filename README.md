@@ -4,13 +4,36 @@ AroMi is an intelligent, adaptive health and wellness coaching system designed t
 
 ---
 
-## 🚀 Features
+🚀 Features
 
-* 🤖 **Adaptive AI Agent** – Continuously learns from user inputs and feedback
-* 🧠 **Context-Aware Recommendations** – Adjusts suggestions based on mood, activity, and routine
-* 🏃 **Holistic Wellness Support** – Physical, mental, and lifestyle guidance
-* 💬 **Conversational Interface** – Natural, empathetic chat-based interactions
-* 🔄 **Real-Time Adaptation** – Recommendations evolve as the user progresses
+🤖 AI Health Coach  
+- Personalized, conversational AI coach for daily health guidance  
+- Adapts advice based on user goals, habits, and progress  
+
+📸 Image-Based Calorie Analysis  
+- Upload food images to estimate calories and nutritional value  
+- Uses AI vision models for smarter dietary tracking  
+
+📄 Prescription Analysis  
+- Upload prescriptions to extract medicines, dosage, and timing  
+- Explains usage in simple, user-friendly language  
+
+❓ Ask Doubts (24/7 AI Assistance)  
+- Ask health, fitness, nutrition, or lifestyle-related questions  
+- Instant AI-powered responses with contextual understanding  
+
+🧠 Context-Aware Recommendations  
+- Suggestions adapt based on mood, routine, and activity level  
+
+🏃 Holistic Wellness Support  
+- Physical health, mental wellness, diet, and lifestyle coaching  
+
+🛍️ Smart Health Shopping  
+- Personalized product recommendations (supplements, fitness gear, wellness items)  
+- Suggestions aligned with user health goals  
+
+🔄 Real-Time Adaptation  
+- Recommendations evolve as user behavior and data change  
 
 ---
 
@@ -188,6 +211,7 @@ Contributions are welcome!
 ```
 
 ---
+
 
 
 
